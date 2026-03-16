@@ -1,0 +1,87 @@
+/* logs.css */
+.toolbar-right { margin-left: auto; display: flex; align-items: center; }
+.records-count { font-size: 12px; color: #6b7280; font-weight: 600; padding-right: 8px; }
+
+/* Tabs */
+.rp-tabs-wrap { background:#fff; border-radius:10px; box-shadow:0 2px 12px rgba(63,72,204,.08); }
+.rp-tabs { display:flex; border-bottom:2px solid #e4e8f0; background:#fafbff; border-radius:10px 10px 0 0; padding:0 6px; overflow-x:auto; gap:2px; }
+.rp-tab { display:flex; align-items:center; gap:6px; padding:11px 18px; font-family:'Raleway',sans-serif; font-weight:700; font-size:12px; color:#6b7280; border:none; background:transparent; border-bottom:3px solid transparent; margin-bottom:-2px; cursor:pointer; white-space:nowrap; transition:color .15s,border-color .15s; }
+.rp-tab:hover  { color:#5c6bc0; }
+.rp-tab.active { color:#5c6bc0; border-bottom-color:#5c6bc0; }
+.rp-panel { display:none; padding:20px; }
+.rp-panel.active { display:block; }
+
+/* Panel toolbar */
+.rp-panel-toolbar { display:flex; align-items:flex-end; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+.rp-field-group { display:flex; flex-direction:column; gap:4px; }
+.rp-field-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:#6b7280; }
+.rp-input { border:1.5px solid #e4e8f0; border-radius:7px; padding:7px 12px; font-size:14px; font-family:'Source Sans 3',sans-serif; font-weight:600; color:#1a1f3c; transition:border-color .2s; background:#fff; }
+.rp-input:focus { outline:none; border-color:#5c6bc0; }
+
+/* Level bar */
+.logs-level-bar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+.level-chip { border-radius:8px; padding:8px 14px; font-size:12px; font-weight:700; display:flex; align-items:center; gap:6px; cursor:pointer; transition:opacity .15s; }
+.level-chip:hover { opacity:.8; }
+.level-chip.INFO     { background:#e3f2fd; color:#1565c0; }
+.level-chip.WARNING  { background:#fffde7; color:#f57f17; }
+.level-chip.ERROR    { background:#ffebee; color:#c62828; }
+.level-chip.CRITICAL { background:#fce4ec; color:#880e4f; }
+.level-chip.AUDIT    { background:#e8f5e9; color:#2e7d32; }
+.level-count { font-family:'Raleway',sans-serif; font-size:16px; font-weight:800; }
+
+/* Log table */
+.log-table-wrap { overflow-x:auto; border-radius:8px; border:1px solid #e4e8f0; font-family:'Source Code Pro', 'Courier New', monospace; }
+.log-table { width:100%; border-collapse:collapse; font-size:12px; }
+.log-table thead th { background:#f0f2f8; padding:8px 12px; text-align:left; font-family:'Raleway',sans-serif; font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:.7px; color:#6b7280; border-bottom:2px solid #e4e8f0; white-space:nowrap; }
+.log-table tbody tr { border-bottom:1px solid #f0f2f8; transition:background .1s; }
+.log-table tbody tr:hover { background:#f8f9ff; }
+.log-table td { padding:7px 12px; vertical-align:top; }
+.log-table td.msg { word-break:break-all; max-width:600px; }
+.log-row-INFO     { }
+.log-row-WARNING  { background:#fffef5; }
+.log-row-ERROR    { background:#fff8f8; }
+.log-row-CRITICAL { background:#fdf0f5; }
+
+/* Level badges */
+.log-badge { display:inline-block; padding:1px 7px; border-radius:4px; font-size:10px; font-weight:700; white-space:nowrap; font-family:'Raleway',sans-serif; }
+.log-badge.INFO     { background:#e3f2fd; color:#1565c0; }
+.log-badge.WARNING  { background:#fffde7; color:#f57f17; }
+.log-badge.ERROR    { background:#ffebee; color:#c62828; }
+.log-badge.CRITICAL { background:#fce4ec; color:#880e4f; }
+.log-badge.AUDIT    { background:#e8f5e9; color:#2e7d32; }
+.log-badge.RAW      { background:#f5f5f5; color:#757575; }
+
+/* Audit rows */
+.audit-row { padding:10px 14px; border-radius:8px; margin-bottom:6px; border-left:3px solid #e4e8f0; background:#fff; }
+.audit-row.audit-create { border-left-color:#43a047; }
+.audit-row.audit-update { border-left-color:#f9a825; }
+.audit-row.audit-delete { border-left-color:#e53935; background:#fffafa; }
+.audit-meta { display:flex; align-items:center; gap:12px; flex-wrap:wrap; font-size:12px; }
+.audit-fio   { font-weight:700; color:#1a1f3c; font-size:13px; }
+.audit-user  { display:flex; align-items:center; gap:4px; color:#6b7280; font-weight:600; }
+.audit-role  { background:#e8eaf6; color:#3949ab; border-radius:4px; padding:1px 5px; font-size:10px; font-weight:700; text-transform:uppercase; }
+.audit-time  { display:flex; align-items:center; gap:4px; color:#9ca3af; margin-left:auto; font-size:11px; }
+.audit-change { display:flex; align-items:center; gap:8px; margin-top:6px; padding:6px 10px; background:#f8f9ff; border-radius:6px; font-size:12px; flex-wrap:wrap; }
+.audit-field { font-weight:700; color:#3949ab; min-width:120px; }
+.audit-old   { color:#e53935; background:#ffebee; padding:2px 7px; border-radius:4px; text-decoration:line-through; }
+.audit-new   { color:#2e7d32; background:#e8f5e9; padding:2px 7px; border-radius:4px; font-weight:600; }
+
+/* Summary cards */
+.rp-summary { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+.rp-sum-card { border-radius:8px; padding:10px 16px; display:flex; align-items:center; gap:10px; font-size:12px; font-weight:600; }
+.rp-sum-card.green  { background:#e8f5e9; color:#2e7d32; }
+.rp-sum-card.yellow { background:#fffde7; color:#f57f17; }
+.rp-sum-card.red    { background:#ffebee; color:#c62828; }
+.rp-sum-card.gray   { background:#f5f5f5; color:#616161; }
+.rp-sum-num { font-family:'Raleway',sans-serif; font-size:24px; font-weight:800; line-height:1; }
+.rp-badge { display:inline-flex; align-items:center; padding:2px 8px; border-radius:20px; font-size:10px; font-weight:700; white-space:nowrap; }
+.rp-badge.green  { background:#e8f5e9; color:#2e7d32; }
+.rp-badge.yellow { background:#fffde7; color:#f57f17; }
+.rp-badge.red    { background:#ffebee; color:#c62828; }
+.rp-badge.gray   { background:#f5f5f5; color:#757575; }
+
+/* Loading / empty */
+.rp-loading { display:flex; align-items:center; justify-content:center; gap:8px; padding:40px; color:#6b7280; font-size:13px; font-weight:600; }
+.rp-spinner { width:18px; height:18px; border:2.5px solid #e4e8f0; border-top-color:#5c6bc0; border-radius:50%; animation:rpSpin .7s linear infinite; }
+.rp-empty   { text-align:center; padding:40px; color:#6b7280; font-size:13px; }
+@keyframes rpSpin { to { transform:rotate(360deg); } }

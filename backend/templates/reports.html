@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Аналитика и отчёты — Абитуриент</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@600;700;800&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/dashboard.css?v=20260310" />
+  <link rel="stylesheet" href="/static/css/mobile.css?v=20260316" />
+  <link rel="stylesheet" href="/static/css/reports.css?v=20260315c" />
+  <style>
+    /* dashboard.css: html,body{height:100%;overflow:hidden} — ломает скролл.
+       Переопределяем только для страницы отчётов */
+    html, body {
+      height: auto !important;
+      overflow: visible !important;
+      overflow-y: auto !important;
+    }
+    /* Компенсируем position:fixed шапки (--header-h:56px) + тулбара (--toolbar-h:52px) */
+    .rp-content {
+      margin-top: calc(var(--header-h) + var(--toolbar-h));
+    }
+  </style>
+</head>
+<body>
+
+<!-- ШАПКА — идентична dashboard -->
+<header class="app-header">
+  <div class="header-left">
+    <div class="logo-mark">
+      <img src="/static/icon.png" alt="Лого" id="logoImg" />
+    </div>
+    <span class="header-title">АБИТУРИЕНТ</span>
+    <span class="rp-header-sep">/</span>
+    <span class="rp-header-page">Аналитика и отчёты</span>
+  </div>
+  <div class="header-right">
+    <span class="user-badge" id="userBadge">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+      </svg>
+      <span id="userName">...</span>
+    </span>
+    <span class="role-pill" id="rolePill">admin</span>
+    <button class="btn-logout" id="logoutBtn" title="Выйти">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<!-- ТУЛБАР — идентичен dashboard -->
+<div class="toolbar">
+  <div class="toolbar-left">
+    <a href="/dashboard" class="tb-btn" style="text-decoration:none;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      К реестру
+    </a>
+  </div>
+  <div class="toolbar-right">
+    <span class="records-count" id="recordsCount"></span>
+  </div><!-- /toolbar-right -->
+</div><!-- /toolbar -->
+
+<!-- ОСНОВНОЙ КОНТЕНТ (прямо как table-container в dashboard) -->
+<div class="rp-content">
+
+  <!-- Карточки обзора -->
+  <div class="rp-overview" id="overviewGrid">
+    <div class="rp-ov-card"><div class="rp-ov-label">Загрузка...</div><div class="rp-ov-val">—</div></div>
+  </div>
+
+  <!-- Вкладки -->
+  <div class="rp-tabs-wrap">
+    <div class="rp-tabs">
+      <button class="rp-tab active" data-panel="panelPassing">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Анализ проходного балла
+      </button>
+      <button class="rp-tab" data-panel="panelCharts">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg>
+        Диаграммы
+      </button>
+      <button class="rp-tab" data-panel="panelStats">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        Статистика
+      </button>
+      <button class="rp-tab" data-panel="panelForecast">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        Прогнозирование
+      </button>
+    </div>
+
+    <!-- ВКЛАДКА 1 -->
+    <div class="rp-panel active" id="panelPassing">
+      <div class="rp-panel-toolbar">
+        <div class="rp-field-group">
+          <label class="rp-field-label">Проходной балл</label>
+          <input type="number" id="psScore" class="rp-input" placeholder="например, 220" min="0" max="600" step="0.1" />
+        </div>
+        <div class="rp-field-group">
+          <label class="rp-field-label">Бюджетных мест</label>
+          <input type="number" id="psPlaces" class="rp-input" placeholder="например, 50" min="1" step="1" />
+        </div>
+        <button class="tb-btn tb-btn-primary" id="btnAnalyze">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Выполнить анализ
+        </button>
+      </div>
+      <div class="rp-summary" id="psSummary"></div>
+      <div id="psResults"><div class="rp-hint">Введите проходной балл и количество мест, затем нажмите «Выполнить анализ»</div></div>
+    </div>
+
+    <!-- ВКЛАДКА 2 -->
+    <div class="rp-panel" id="panelCharts">
+      <div class="rp-panel-toolbar">
+        <button class="tb-btn rp-chart-btn active" data-chart="sources">Источники информации</button>
+        <button class="tb-btn rp-chart-btn" data-chart="cities">ТОП-10 городов</button>
+        <button class="tb-btn rp-chart-btn" data-chart="regions">Регионы</button>
+        <button class="tb-btn rp-chart-btn" data-chart="benefits">Льготы</button>
+        <button class="tb-btn rp-chart-btn" data-chart="rating">Распределение баллов</button>
+      </div>
+      <div id="chartArea"><div class="rp-loading"><div class="rp-spinner"></div>Загрузка...</div></div>
+    </div>
+
+    <!-- ВКЛАДКА 3 -->
+    <div class="rp-panel" id="panelStats">
+      <div class="rp-panel-toolbar">
+        <button class="tb-btn rp-stats-btn active" data-stats="cities">По городам</button>
+        <button class="tb-btn rp-stats-btn" data-stats="sources">По источникам</button>
+        <button class="tb-btn rp-stats-btn" data-stats="general">Общая статистика</button>
+      </div>
+      <div id="statsArea"><div class="rp-loading"><div class="rp-spinner"></div>Загрузка...</div></div>
+    </div>
+
+    <!-- ВКЛАДКА 4 -->
+    <div class="rp-panel" id="panelForecast">
+      <div class="rp-panel-toolbar">
+        <button class="tb-btn rp-forecast-btn active" data-forecast="passing">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Проходной балл
+        </button>
+        <button class="tb-btn rp-forecast-btn" data-forecast="dormitory">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Общежитие
+        </button>
+        <button class="tb-btn rp-forecast-btn" data-forecast="sources">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          Эффективность источников
+        </button>
+        <button class="tb-btn rp-forecast-btn" data-forecast="geographic">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Географический анализ
+        </button>
+      </div>
+      <div id="forecastArea"><div class="rp-loading"><div class="rp-spinner"></div>Загрузка...</div></div>
+    </div>
+
+  </div><!-- /rp-tabs-wrap -->
+</div><!-- /rp-content -->
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/static/js/storage.js?v=20260310c"></script>
+<script src="/static/js/reports.js?v=20260315b"></script>
+</body>
+</html>

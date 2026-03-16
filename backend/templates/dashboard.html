@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Реестр абитуриентов</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@600;700;800&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/dashboard.css?v=20260310" />
+  <link rel="stylesheet" href="/static/css/mobile.css?v=20260316" />
+  <style>
+    /* Режим читателя */
+    #mainTable.viewer-mode th, #mainTable.viewer-mode td { display: none !important; }
+    #mainTable.viewer-mode th[data-viewer="show"], #mainTable.viewer-mode td[data-viewer="show"] { display: table-cell !important; }
+
+    /* ── Аудит модалка ── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 999;
+      background: rgba(0,0,0,.45);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .modal-box {
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 8px 40px rgba(0,0,0,.22);
+      display: flex; flex-direction: column;
+      max-height: 88vh; overflow: hidden;
+    }
+    .modal-header {
+      background: linear-gradient(135deg,#3949ab,#3f51b5);
+      padding: 14px 18px;
+      display: flex; align-items: center; gap: 8px;
+      border-radius: 12px 12px 0 0;
+    }
+    .modal-header h5 { color:#fff; }
+    .modal-close {
+      margin-left: auto; background: rgba(255,255,255,.15);
+      border: none; color: #fff; width: 28px; height: 28px;
+      border-radius: 6px; cursor: pointer; font-size: 14px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s;
+    }
+    .modal-close:hover { background: rgba(255,255,255,.28); }
+    .modal-body { overflow-y: auto; }
+
+    /* ── Аудит строки (для модалки в dashboard) ── */
+    .audit-row {
+      padding: 10px 14px; border-radius: 8px; margin-bottom: 6px;
+      border-left: 3px solid #e4e8f0; background: #fff; transition: background .12s;
+    }
+    .audit-row:hover { background: #f5f7ff; }
+    .audit-row.audit-create { border-left-color: #43a047; }
+    .audit-row.audit-update { border-left-color: #f9a825; }
+    .audit-row.audit-delete { border-left-color: #e53935; background: #fffafa; }
+    .audit-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px; }
+    .audit-user { display: flex; align-items: center; gap: 4px; color: #6b7280; font-weight: 600; }
+    .audit-role { background: #e8eaf6; color: #3949ab; border-radius: 4px; padding: 1px 5px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .audit-time { display: flex; align-items: center; gap: 4px; color: #9ca3af; margin-left: auto; font-size: 11px; }
+    .audit-change { display: flex; align-items: center; gap: 8px; margin-top: 6px; padding: 6px 10px; background: #f8f9ff; border-radius: 6px; font-size: 12px; flex-wrap: wrap; }
+    .audit-field { font-weight: 700; color: #3949ab; min-width: 120px; }
+    .audit-old { color: #e53935; background: #ffebee; padding: 2px 7px; border-radius: 4px; text-decoration: line-through; }
+    .audit-new { color: #2e7d32; background: #e8f5e9; padding: 2px 7px; border-radius: 4px; font-weight: 600; }
+    .rp-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+    .rp-badge.green  { background: #e8f5e9; color: #2e7d32; }
+    .rp-badge.yellow { background: #fffde7; color: #f57f17; }
+    .rp-badge.red    { background: #ffebee; color: #c62828; }
+    .rp-badge.gray   { background: #f5f5f5; color: #757575; }
+    .rp-loading { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 30px; color: #6b7280; font-size: 13px; font-weight: 600; }
+    .rp-spinner { width: 18px; height: 18px; border: 2.5px solid #e4e8f0; border-top-color: #5c6bc0; border-radius: 50%; animation: rpSpin .7s linear infinite; }
+    @keyframes rpSpin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════
+     ШАПКА
+═════════════════════════════════════════════════ -->
+<header class="app-header">
+  <div class="header-left">
+    <div class="logo-mark">
+      <img src="/static/icon.png" alt="Лого" id="logoImg" />
+    </div>
+    <span class="header-title">АБИТУРИЕНТ</span>
+  </div>
+  <div class="header-right">
+
+    <!-- Кнопка перехода в админ-панель (только для admin, показывается через JS) -->
+    <a href="/admin" class="btn-logout" id="btnAdminPanel" title="Управление пользователями" style="display:none;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+    </a>
+    <span class="user-badge" id="userBadge">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+        <circle cx="12" cy="7" r="4"/>
+      </svg>
+      <span id="userName">...</span>
+    </span>
+    <span class="role-pill" id="rolePill">viewer</span>
+    <button class="btn-logout" id="logoutBtn" title="Выйти">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+        <polyline points="16 17 21 12 16 7"/>
+        <line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════════
+     ПАНЕЛЬ ИНСТРУМЕНТОВ
+═════════════════════════════════════════════════ -->
+<div class="toolbar">
+  <div class="toolbar-left">
+    <button class="tb-btn tb-btn-primary" id="btnAdd">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Добавить
+    </button>
+    <button class="tb-btn" id="btnEdit" disabled>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Изменить
+    </button>
+    <button class="tb-btn" id="btnHistory" disabled title="История изменений записи">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      История
+    </button>
+    <button class="tb-btn tb-btn-danger" id="btnDelete" disabled>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      Удалить
+    </button>
+    <div class="tb-divider"></div>
+    <a href="/reports" class="tb-btn" id="btnReports" style="display:none;text-decoration:none;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+      Аналитика
+    </a>
+    <a href="/logs" class="tb-btn" id="btnLogs" style="display:none;text-decoration:none;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Логи
+    </a>
+    <div class="tb-divider"></div>
+    <button class="tb-btn" id="btnRefresh">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      Обновить
+    </button>
+    <button class="tb-btn" id="btnExport">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Экспорт
+    </button>
+    <button class="tb-btn tb-btn-import" id="btnImport">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Импорт
+    </button>
+    <input type="file" id="importFileInput" accept=".csv,.xlsx,.xls" style="display:none;" />
+  </div>
+  <div class="toolbar-right">
+    <div class="search-wrap">
+      <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="text" id="searchInput" class="search-input" placeholder="Поиск абитуриента..." />
+      <button class="search-clear" id="searchClear" title="Очистить">✕</button>
+    </div>
+    <span class="counter" id="counter">0 записей</span>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     ТАБЛИЦА
+     data-viewer="show" — колонка видна читателю
+     (остальные скрываются CSS классом viewer-mode)
+═════════════════════════════════════════════════ -->
+<div class="table-container" id="tableContainer">
+  <div class="table-loading" id="tableLoading">
+    <div class="spinner-border text-primary" style="width:2.5rem;height:2.5rem;"></div>
+    <span>Загрузка данных...</span>
+  </div>
+  <div class="table-scroll" id="tableScroll" style="display:none;">
+    <table class="app-table" id="mainTable">
+      <thead>
+        <tr>
+          <th data-col="id"              data-viewer="show" class="sortable col-num">№</th>
+          <th data-col="last_name"       data-viewer="show" class="sortable">Фамилия</th>
+          <th data-col="first_name"      data-viewer="show" class="sortable">Имя</th>
+          <th data-col="patronymic"      data-viewer="show" class="sortable">Отчество</th>
+          <th data-col="code"                               class="sortable col-code">Код</th>
+          <th data-col="form_education"                     class="sortable col-form">Форма</th>
+          <th data-col="rating"          data-viewer="show" class="sortable col-rating">Рейтинг</th>
+          <th data-col="benefit"                            class="sortable">Льгота</th>
+          <th data-col="has_original"                       class="sortable col-bool">Оригинал</th>
+          <th data-col="region"                             class="sortable col-region">Регион</th>
+          <th data-col="city"                               class="sortable">Город</th>
+          <th data-col="dormitory"                          class="sortable col-bool">Общежитие</th>
+          <th data-col="institution"                        class="sortable col-inst">Учреждение</th>
+          <th data-col="submission_date"                    class="sortable col-date">Дата подачи</th>
+          <th data-col="visit_date"                         class="sortable col-date">Дата посещения</th>
+          <th data-col="info_source"                        class="sortable col-source">Откуда узнал</th>
+          <th data-col="phone"                              class="sortable col-phone">Телефон</th>
+          <th data-col="vk"                                 class="sortable col-vk">ВКонтакте</th>
+          <th data-col="parent_name"                        class="sortable col-parent">Родитель</th>
+          <th data-col="parent_phone"                       class="sortable col-phone">Тел. родителя</th>
+          <th data-col="notes"                              class="col-notes">Примечание</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+  <div class="table-empty" id="tableEmpty" style="display:none;">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#bdbdbd" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+    </svg>
+    <p>Нет данных для отображения</p>
+    <small>Добавьте первого абитуриента кнопкой «Добавить»</small>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     МОДАЛЬНОЕ ОКНО — ДОБАВИТЬ / РЕДАКТИРОВАТЬ
+═════════════════════════════════════════════════ -->
+<div class="modal fade" id="applicantModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+
+      <div class="modal-header-custom" id="modalHeader">
+        <h5 class="modal-title-custom" id="modalTitle">ДОБАВЛЕНИЕ АБИТУРИЕНТА</h5>
+        <button type="button" class="modal-close-btn" data-bs-dismiss="modal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="modal-body p-0">
+        <form id="applicantForm" novalidate>
+          <div class="form-sections">
+
+            <!-- Секция: Основные данные -->
+            <div class="form-section">
+              <div class="section-title">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                ОСНОВНЫЕ ДАННЫЕ
+              </div>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label-custom">Фамилия <span class="req">*</span></label>
+                  <input type="text" class="form-control fc" id="fLastName" required placeholder="Иванов" />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label-custom">Имя <span class="req">*</span></label>
+                  <input type="text" class="form-control fc" id="fFirstName" required placeholder="Иван" />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label-custom">Отчество</label>
+                  <input type="text" class="form-control fc" id="fPatronymic" placeholder="Иванович" />
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label-custom">Код специальности <span class="req">*</span></label>
+                  <input type="text" class="form-control fc" id="fCode" required placeholder="09.02.07" />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label-custom">Форма обучения <span class="req">*</span></label>
+                  <select class="form-control fc" id="fFormEdu">
+                    <option>Очная</option>
+                    <option>Заочная</option>
+                    <option>Очно-заочная</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label-custom">Льгота</label>
+                  <select class="form-control fc" id="fBenefit">
+                    <option value="">— без льготы —</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label-custom">Дата подачи</label>
+                  <input type="date" class="form-control fc" id="fSubmissionDate" />
+                </div>
+                <div class="col-md-4 d-flex align-items-end gap-4">
+                  <div class="check-group">
+                    <input type="checkbox" class="form-check-input" id="fOriginal" />
+                    <label class="form-check-label ms-2" for="fOriginal">Оригинал документов</label>
+                  </div>
+                  <div class="check-group">
+                    <input type="checkbox" class="form-check-input" id="fDormitory" />
+                    <label class="form-check-label ms-2" for="fDormitory">Нужно общежитие</label>
+                  </div>
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label-custom">Бонус льготы</label>
+                  <div class="bonus-display" id="bonusDisplay">0 б.</div>
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label-custom">Экзамены</label>
+                  <div class="bonus-display" id="examSum">0 б.</div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label-custom">Итоговый рейтинг</label>
+                  <div class="total-rating-display" id="totalRating">0.0</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Секция: Образование и география -->
+            <div class="form-section">
+              <div class="section-title">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                ОБРАЗОВАНИЕ И ГЕОГРАФИЯ
+              </div>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label-custom">Регион <span class="req">*</span></label>
+                  <div class="combo-wrap">
+                    <input type="text" class="form-control fc" id="fRegion"
+                           list="regionList" autocomplete="off"
+                           required placeholder="Выберите или введите регион" />
+                    <datalist id="regionList"></datalist>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label-custom">Город <span class="req">*</span></label>
+                  <div class="combo-wrap">
+                    <input type="text" class="form-control fc" id="fCity"
+                           list="cityList" autocomplete="off"
+                           required placeholder="Выберите или введите город" />
+                    <datalist id="cityList"></datalist>
+                  </div>
+                </div>
+                <div class="col-12">
+                  <label class="form-label-custom">Учебное заведение <span class="req">*</span></label>
+                  <input type="text" class="form-control fc" id="fInstitution" required placeholder="МОУ СОШ №1" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Секция: Контактная информация -->
+            <div class="form-section">
+              <div class="section-title">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.6a16 16 0 0 0 6 6l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                КОНТАКТНАЯ ИНФОРМАЦИЯ
+              </div>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label-custom">Телефон <span class="req">*</span></label>
+                  <input type="tel" class="form-control fc phone-input" id="fPhone" required placeholder="+7-000-000-00-00" />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label-custom">ВКонтакте</label>
+                  <input type="text" class="form-control fc" id="fVk" placeholder="vk.com/id..." />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label-custom">Откуда узнал/а</label>
+                  <select class="form-control fc" id="fInfoSource">
+                    <option value="">— не указано —</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label-custom">Родитель (ФИО)</label>
+                  <input type="text" class="form-control fc" id="fParentName" placeholder="Иванова Мария Петровна" />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label-custom">Кем приходится</label>
+                  <select class="form-control fc" id="fParentRelation">
+                    <option>Родитель</option><option>Мать</option><option>Отец</option>
+                    <option>Опекун</option><option>Бабушка</option><option>Дедушка</option>
+                    <option>Брат</option><option>Сестра</option><option>Другой родственник</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label-custom">Телефон родителя</label>
+                  <input type="tel" class="form-control fc phone-input" id="fParentPhone" placeholder="+7-000-000-00-00" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Секция: Экзамены -->
+            <div class="form-section">
+              <div class="section-title">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                ЭКЗАМЕНЫ
+              </div>
+              <div id="examRows" class="exam-rows"></div>
+              <button type="button" class="btn-add-exam" id="btnAddExam">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Добавить экзамен
+              </button>
+              <p class="exam-hint">Можно добавить до 3 экзаменов. Один предмет — только один раз.</p>
+            </div>
+
+            <!-- Секция: Дополнительно -->
+            <div class="form-section">
+              <div class="section-title">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                ДОПОЛНИТЕЛЬНО
+              </div>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label-custom">Дата посещения</label>
+                  <input type="date" class="form-control fc" id="fVisitDate" />
+                </div>
+                <div class="col-md-8">
+                  <label class="form-label-custom">Примечание</label>
+                  <textarea class="form-control fc" id="fNotes" rows="3" placeholder="Дополнительная информация..."></textarea>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-footer-custom">
+        <button type="button" class="btn-modal-cancel" data-bs-dismiss="modal">Отмена</button>
+        <button type="button" class="btn-modal-save" id="btnSave">
+          <span class="btn-text">Сохранить</span>
+          <span class="spinner-border spinner-border-sm" style="display:none;"></span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     МОДАЛЬНОЕ ОКНО — ПОДТВЕРЖДЕНИЕ УДАЛЕНИЯ
+═════════════════════════════════════════════════ -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+    <div class="modal-content" style="border-radius:16px;border:none;overflow:hidden;">
+      <div class="modal-body p-4 text-center">
+        <div class="delete-icon-wrap">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#d32f2f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </div>
+        <h5 class="mt-3 mb-2" style="font-family:'Raleway',sans-serif;font-weight:700;">Удалить абитуриента?</h5>
+        <p class="text-muted mb-0" id="deleteConfirmText" style="font-size:14px;"></p>
+      </div>
+      <div class="modal-footer border-0 justify-content-center gap-3 pb-4">
+        <button class="btn-modal-cancel" data-bs-dismiss="modal">Отмена</button>
+        <button class="btn-modal-delete" id="btnConfirmDelete">Удалить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Модальное окно выбора формата экспорта -->
+<div class="modal fade" id="exportFmtModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:360px;">
+    <div class="modal-content" style="border-radius:16px;border:none;overflow:hidden;">
+      <div class="modal-header-custom" style="padding:18px 24px 14px;">
+        <span class="modal-title-text">ФОРМАТ ЭКСПОРТА</span>
+        <button type="button" class="modal-close-btn" data-bs-dismiss="modal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body p-4 d-flex flex-column gap-3">
+        <button class="export-fmt-btn" id="btnExportCSV">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+          <div><div class="export-fmt-title">CSV</div><div class="export-fmt-sub">Текстовый, открывается везде</div></div>
+        </button>
+        <button class="export-fmt-btn export-fmt-xlsx" id="btnExportXLSX">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+          <div><div class="export-fmt-title">Excel (XLSX)</div><div class="export-fmt-sub">Для Microsoft Excel и LibreOffice</div></div>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Модальное окно импорта -->
+<div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
+    <div class="modal-content" style="border-radius:16px;border:none;overflow:hidden;">
+      <div class="modal-header-custom" style="padding:20px 24px 16px;">
+        <span class="modal-title-text" id="importModalTitle">ИМПОРТ ДАННЫХ</span>
+        <button type="button" class="modal-close-btn" data-bs-dismiss="modal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="import-dropzone" id="importDropzone">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--indigo);opacity:.6;margin-bottom:12px;">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <p class="import-drop-text">Перетащите файл сюда</p>
+          <p class="import-drop-sub">или нажмите для выбора файла</p>
+          <p class="import-drop-hint">Поддерживается: <strong>CSV</strong>, <strong>XLSX</strong>, <strong>XLS</strong></p>
+          <input type="file" id="importDropInput" accept=".csv,.xlsx,.xls" style="display:none;" />
+        </div>
+        <div class="import-file-info" id="importFileInfo" style="display:none;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span id="importFileName">файл.csv</span>
+          <button type="button" class="import-file-clear" id="importFileClear" title="Убрать">✕</button>
+        </div>
+        <div class="import-progress" id="importProgress" style="display:none;">
+          <div class="import-progress-bar" id="importProgressBar"></div>
+        </div>
+        <div class="import-result" id="importResult" style="display:none;"></div>
+        <details class="import-format-hint">
+          <summary>Ожидаемые колонки файла</summary>
+          <div class="import-columns-grid">
+            <span>Фамилия *</span><span>Имя *</span><span>Отчество</span>
+            <span>Код *</span><span>Телефон *</span><span>Регион *</span>
+            <span>Город *</span><span>Учреждение *</span><span>Форма обучения</span>
+            <span>Льгота</span><span>Оригинал</span><span>Общежитие</span>
+            <span>Дата подачи</span><span>Дата посещения</span><span>Откуда узнал</span>
+            <span>ВКонтакте</span><span>Родитель</span><span>Тел. родителя</span><span>Примечание</span>
+          </div>
+          <p class="import-format-note">* — обязательные поля. Первая строка — заголовки.</p>
+        </details>
+      </div>
+      <div class="modal-footer border-0 justify-content-end gap-3 pb-4 px-4">
+        <button class="btn-modal-cancel" data-bs-dismiss="modal">Отмена</button>
+        <button class="btn-modal-save" id="btnConfirmImport" disabled>
+          <span class="spinner-border spinner-border-sm me-2" style="display:none;" role="status"></span>
+          <span class="btn-text">Импортировать</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast уведомление -->
+<div class="toast-wrap" id="toastWrap">
+  <div class="app-toast" id="appToast">
+    <svg id="toastIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></svg>
+    <span id="toastText"></span>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/static/js/storage.js?v=20260310c"></script>
+<script src="/static/js/dashboard.js?v=20260310c"></script>
+
+<!-- ═══════════════════════════════════════
+     МОДАЛЬНОЕ ОКНО ИСТОРИИ ИЗМЕНЕНИЙ
+════════════════════════════════════════ -->
+<div class="modal-overlay" id="historyOverlay" style="display:none;">
+  <div class="modal-box" style="max-width:780px;width:96%;">
+    <div class="modal-header">
+      <h5 style="font-family:'Raleway',sans-serif;font-weight:800;font-size:15px;margin:0">
+        История изменений
+      </h5>
+      <span id="historyFio" style="font-size:12px;color:rgba(255,255,255,.75);margin-left:10px"></span>
+      <button class="modal-close" id="historyClose">✕</button>
+    </div>
+    <div class="modal-body" style="padding:0;max-height:520px;overflow-y:auto;">
+      <div id="historyContent" style="padding:16px;">
+        <div class="rp-loading"><div class="rp-spinner"></div>Загрузка...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

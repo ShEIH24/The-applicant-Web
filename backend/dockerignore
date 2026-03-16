@@ -1,0 +1,34 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info
+.eggs
+dist
+build
+venv
+.venv
+env
+
+# Логи (монтируются как volume)
+logs/
+*.log
+
+# Секреты — не попадают в образ
+.env
+.env.docker
+
+# IDE
+.vscode
+.idea
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

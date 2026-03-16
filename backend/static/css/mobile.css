@@ -1,0 +1,268 @@
+/* ================================================================
+   mobile.css — адаптация под мобильные устройства
+   Подключается ПОСЛЕ dashboard.css на всех страницах
+   Breakpoints: 768px (tablet), 480px (phone)
+   ================================================================ */
+
+/* ── ШАПКА ──────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .app-header {
+    padding: 0 12px;
+    height: auto;
+    min-height: var(--header-h);
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .header-title {
+    font-size: 14px !important;
+  }
+
+  /* Скрываем подзаголовок страницы (/ Аналитика и отчёты) */
+  .rp-header-sep,
+  .rp-header-page { display: none; }
+
+  /* Имя пользователя — скрываем на маленьких экранах */
+  .user-badge span#userName { display: none; }
+
+  .role-pill { font-size: 9px; padding: 2px 7px; }
+}
+
+/* ── ТУЛБАР ─────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .toolbar {
+    height: auto !important;
+    min-height: var(--toolbar-h);
+    flex-wrap: wrap;
+    padding: 6px 10px;
+    gap: 6px;
+  }
+
+  .toolbar-left {
+    flex-wrap: wrap;
+    gap: 4px;
+    width: 100%;
+  }
+
+  .toolbar-right {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  /* Текст кнопок скрываем — оставляем только иконки */
+  .tb-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  /* Разделитель убираем при переносе */
+  .tb-divider { display: none; }
+
+  /* Поиск растягивается на всю ширину */
+  .search-wrap { width: 100%; max-width: 100%; }
+  .search-input { width: 100% !important; }
+
+  /* Счётчик записей */
+  .records-count { font-size: 11px; }
+}
+
+@media (max-width: 480px) {
+  /* На совсем маленьких — скрываем текст кнопок тулбара */
+  .tb-btn span,
+  .tb-btn-text { display: none; }
+
+  .tb-btn {
+    padding: 7px 9px;
+    min-width: 34px;
+    justify-content: center;
+  }
+  /* Добавить — оставляем текст */
+  #btnAdd span,
+  #btnAdd { padding: 6px 12px; }
+}
+
+/* ── ТАБЛИЦА ─────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Компенсация под новую высоту fixed-шапки и тулбара */
+  .table-container {
+    top: 0 !important;
+    /* JS пересчитает через measureHeaderHeight() */
+  }
+
+  /* Горизонтальный скролл таблицы */
+  .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Уменьшаем шрифт и отступы в ячейках */
+  #mainTable th,
+  #mainTable td {
+    font-size: 11px !important;
+    padding: 6px 8px !important;
+    white-space: nowrap;
+  }
+
+  /* Скрываем менее важные колонки на мобильном */
+  #mainTable th:nth-child(n+8),
+  #mainTable td:nth-child(n+8) {
+    display: none;
+  }
+
+  /* Номер строки */
+  #mainTable th:first-child,
+  #mainTable td:first-child {
+    min-width: 30px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* На телефоне скрываем ещё больше колонок */
+  #mainTable th:nth-child(n+6),
+  #mainTable td:nth-child(n+6) {
+    display: none;
+  }
+}
+
+/* ── МОДАЛЬНОЕ ОКНО ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .modal-dialog {
+    margin: 8px !important;
+    max-width: calc(100vw - 16px) !important;
+  }
+
+  .modal-dialog.modal-xl {
+    max-width: calc(100vw - 16px) !important;
+  }
+
+  /* Сетка формы — все колонки в одну */
+  .col-md-2, .col-md-3, .col-md-4,
+  .col-md-6, .col-md-8 {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+  }
+
+  .col-md-4.d-flex { flex-direction: column !important; }
+
+  .modal-body { padding: 14px !important; }
+
+  .modal-header-custom { padding: 12px 14px; }
+  .modal-title-custom  { font-size: 13px; }
+
+  /* Экзамены */
+  .exam-row { flex-wrap: wrap; gap: 6px; }
+  .exam-row select { width: 100% !important; }
+  .exam-row input  { width: 80px !important; }
+}
+
+/* ── СТРАНИЦА АНАЛИТИКИ ──────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .rp-content {
+    padding: 12px 10px 40px;
+  }
+
+  /* Карточки обзора — 2 в ряд */
+  .rp-overview {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px;
+  }
+
+  .rp-ov-val { font-size: 20px !important; }
+
+  /* Вкладки — горизонтальный скролл */
+  .rp-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap !important;
+  }
+
+  .rp-tab {
+    font-size: 11px;
+    padding: 9px 12px;
+    white-space: nowrap;
+  }
+
+  /* Панели */
+  .rp-panel { padding: 14px 10px; }
+
+  .rp-panel-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .rp-field-group { width: 100%; }
+  .rp-input { width: 100% !important; }
+
+  /* Два графика в одну колонку */
+  .rp-two-charts,
+  .rp-geo-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Высота графиков */
+  .rp-chart-wrap    { height: 240px !important; }
+  .rp-chart-wrap-sm { height: 200px !important; }
+
+  /* Сводные карточки — 2 в ряд */
+  .rp-summary { gap: 6px; }
+  .rp-sum-card {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 120px;
+  }
+  .rp-sum-num { font-size: 18px !important; }
+
+  /* Таблицы */
+  .rp-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .rp-table { font-size: 11px; }
+  .rp-table td, .rp-table th { padding: 6px 8px !important; }
+}
+
+@media (max-width: 480px) {
+  .rp-overview {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Кнопки выбора типа в одну колонку */
+  .rp-panel-toolbar .tb-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ── СТРАНИЦА ЛОГОВ ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .logs-content {
+    padding: 12px 10px 40px;
+  }
+
+  .log-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .log-table { font-size: 11px; }
+  .log-table td { padding: 6px 8px !important; }
+  .log-table td.msg { max-width: 200px; word-break: break-word; }
+
+  /* Скрываем колонку logger на мобиле */
+  .log-table th:nth-child(3),
+  .log-table td:nth-child(3) { display: none; }
+}
+
+/* ── ИСТОРИЯ ИЗМЕНЕНИЙ (модалка) ─────────────────────────────────── */
+@media (max-width: 768px) {
+  .audit-meta { gap: 6px; }
+  .audit-time { margin-left: 0; width: 100%; }
+  .audit-change { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .audit-field { min-width: auto; }
+}
+
+/* ── УТИЛИТЫ ─────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Тост-уведомления */
+  .app-toast {
+    left: 10px !important;
+    right: 10px !important;
+    bottom: 10px !important;
+    width: auto !important;
+    max-width: 100% !important;
+  }
+}

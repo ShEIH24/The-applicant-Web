@@ -1,0 +1,72 @@
+version: "3.9"
+
+services:
+
+  # ── База данных MySQL ───────────────────────────────────────────
+  db:
+    image: mysql:8.0
+    container_name: abiturient_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-rootpass}
+      MYSQL_DATABASE:      ${DB_NAME:-applicantdb}
+      MYSQL_USER:          ${DB_USER:-abiturient}
+      MYSQL_PASSWORD:      ${DB_PASSWORD:-rootpass}
+    ports:
+      - "3307:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost",
+             "-u", "root", "-p${DB_PASSWORD:-rootpass}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      # При первом запуске MySQL инициализирует схему и перезапускается —
+      # этот процесс занимает до 60 секунд. start_period даёт ему время
+      # до начала отсчёта retries.
+      start_period: 60s
+
+  # ── FastAPI приложение ──────────────────────────────────────────
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: abiturient_app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy   # ждём пока БД будет готова
+    environment:
+      APP_ENV:              ${APP_ENV:-production}
+      SECRET_KEY:           ${SECRET_KEY}
+      TOKEN_EXPIRE_MINUTES: ${TOKEN_EXPIRE_MINUTES:-60}
+      DB_HOST:              db
+      DB_PORT:              3306
+      DB_NAME:              ${DB_NAME:-applicantdb}
+      DB_USER:              ${DB_USER:-abiturient}
+      DB_PASSWORD:          ${DB_PASSWORD:-rootpass}
+      ADMIN_USERNAME:       ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD:       ${ADMIN_PASSWORD}
+      ADMIN_FULLNAME:       ${ADMIN_FULLNAME:-Admin}
+      ALLOWED_ORIGINS:      ${ALLOWED_ORIGINS:-http://localhost:8000}
+      LOG_LEVEL:            ${LOG_LEVEL:-INFO}
+      # Сколько раз и как часто main.py сам проверяет доступность БД
+      # (дополнительная защита от false-positive healthcheck)
+      DB_RETRY_ATTEMPTS:    20
+      DB_RETRY_DELAY:       3
+    ports:
+      - "8000:8000"
+    volumes:
+      - app_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  db_data:
+  app_logs:

@@ -1,0 +1,28 @@
+# Секреты — НИКОГДА не коммитить
+.env
+.env.docker
+*.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
+
+# Логи
+backend/logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
