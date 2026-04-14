@@ -4,6 +4,7 @@
 CREATE DATABASE IF NOT exists applicantdb;
 
 use applicantdb;
+
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
@@ -26,10 +27,9 @@ CREATE TABLE IF NOT EXISTS City (
 
 CREATE TABLE IF NOT EXISTS Institution (
     id_institution   INT AUTO_INCREMENT PRIMARY KEY,
-    name_institution VARCHAR(255) NOT NULL,
-    id_city          INT,
-    FOREIGN KEY (id_city) REFERENCES City(id_city)
-        ON DELETE SET NULL ON UPDATE CASCADE
+    name_institution VARCHAR(255) NOT NULL
+    -- связь только через Applicant.id_institution → Institution
+    -- id_city намеренно убран: был источником циклической зависимости
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS Benefit (
@@ -76,8 +76,10 @@ CREATE TABLE IF NOT EXISTS Applicant (
     id_parent       INT,
     -- Рейтинг хранится здесь и пересчитывается триггером
     rating          FLOAT        NOT NULL DEFAULT 0,
-    FOREIGN KEY (id_city)   REFERENCES City(id_city)     ON DELETE SET NULL ON UPDATE CASCADE,
-    FOREIGN KEY (id_parent) REFERENCES Parent(id_parent) ON DELETE SET NULL ON UPDATE CASCADE
+    id_institution  INT,                              -- школа абитуриента
+    FOREIGN KEY (id_city)         REFERENCES City(id_city)                  ON DELETE SET NULL ON UPDATE CASCADE,
+    FOREIGN KEY (id_parent)       REFERENCES Parent(id_parent)              ON DELETE SET NULL ON UPDATE CASCADE,
+    FOREIGN KEY (id_institution)  REFERENCES Institution(id_institution)    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ------------------------------------------------------------
@@ -288,7 +290,7 @@ SELECT
     app.has_original,
     app.submission_date,
     app.form_education,
-    NULL                          AS institution,
+    inst.name_institution         AS institution,
     b.name_benefit                AS benefit,
     b.bonus_points,
     ai.department_visit,
@@ -299,14 +301,15 @@ SELECT
     p.phone                       AS parent_phone,
     p.relation                    AS parent_relation
 FROM Applicant a
-LEFT JOIN City c                  ON a.id_city      = c.id_city
-LEFT JOIN Region r                ON c.id_region    = r.id_region
-LEFT JOIN Application app         ON a.id_applicant = app.id_applicant
-LEFT JOIN Applicant_benefit ab    ON a.id_applicant = ab.id_applicant
-LEFT JOIN Benefit b               ON ab.id_benefit  = b.id_benefit
-LEFT JOIN Additional_info ai      ON a.id_applicant = ai.id_applicant
-LEFT JOIN Information_source isrc ON ai.id_source   = isrc.id_source
-LEFT JOIN Parent p                ON a.id_parent    = p.id_parent;
+LEFT JOIN City c                 ON a.id_city      = c.id_city
+LEFT JOIN Region r               ON c.id_region    = r.id_region
+LEFT JOIN Application app        ON a.id_applicant   = app.id_applicant
+LEFT JOIN Institution inst       ON a.id_institution = inst.id_institution
+LEFT JOIN Applicant_benefit ab   ON a.id_applicant   = ab.id_applicant
+LEFT JOIN Benefit b              ON ab.id_benefit  = b.id_benefit
+LEFT JOIN Additional_info ai     ON a.id_applicant = ai.id_applicant
+LEFT JOIN Information_source isrc ON ai.id_source  = isrc.id_source
+LEFT JOIN Parent p               ON a.id_parent    = p.id_parent;
 
 -- ============================================================
 -- Начальные справочные данные

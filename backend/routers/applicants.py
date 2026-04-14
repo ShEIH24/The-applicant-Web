@@ -11,6 +11,7 @@ from models import (Applicant, Application, AdditionalInfo, Parent,
                     City, Region, Institution, Benefit, ApplicantBenefit,
                     InformationSource, User)
 from routers.auth import get_current_user
+from routers.audit import log_action
 
 router = APIRouter(prefix="/api/applicants", tags=["applicants"])
 
@@ -103,6 +104,22 @@ async def _get_or_create_city(db: AsyncSession, city: str, region: str) -> int:
 
 
 
+async def _get_or_create_institution(db: AsyncSession, name: Optional[str]) -> Optional[int]:
+    # ищет или создаёт учреждение по названию; возвращает None если не указано
+    if not name or not name.strip():
+        return None
+    r = await db.execute(
+        select(Institution).where(Institution.name_institution == name)
+    )
+    obj = r.scalar_one_or_none()
+    if obj:
+        return obj.id_institution
+    obj = Institution(name_institution=name)
+    db.add(obj)
+    await db.flush()
+    return obj.id_institution
+
+
 async def _get_or_create_source(db: AsyncSession, name: Optional[str]) -> Optional[int]:
     if not name:
         return None
@@ -149,7 +166,7 @@ async def list_applicants(
             app.base_rating,
             app.has_original,
             app.submission_date,
-            NULL AS institution,
+            inst.name_institution AS institution,
             b.name_benefit      AS benefit,
             b.bonus_points,
             ai.department_visit AS visit_date,
@@ -163,6 +180,7 @@ async def list_applicants(
         LEFT JOIN City c              ON a.id_city       = c.id_city
         LEFT JOIN Region r            ON c.id_region     = r.id_region
         LEFT JOIN Application app     ON a.id_applicant  = app.id_applicant
+        LEFT JOIN Institution inst    ON a.id_institution = inst.id_institution
         LEFT JOIN Applicant_benefit ab ON a.id_applicant = ab.id_applicant
         LEFT JOIN Benefit b           ON ab.id_benefit   = b.id_benefit
         LEFT JOIN Additional_info ai  ON a.id_applicant  = ai.id_applicant
@@ -230,6 +248,7 @@ async def create_applicant(
     # Используем чистый SQL чтобы полностью контролировать порядок INSERT
     # и избежать проблем с autoflush / NULL rating
     id_city        = await _get_or_create_city(db, data.city, data.region)
+    id_institution = await _get_or_create_institution(db, data.institution)
     id_benefit, bonus_points = await _get_benefit(db, data.benefit)
     id_source      = await _get_or_create_source(db, data.info_source)
 
@@ -246,18 +265,21 @@ async def create_applicant(
     rating = float(bonus_points or 0)
     res = await db.execute(text("""
         INSERT INTO Applicant
-            (last_name, first_name, patronymic, phone, vk, id_city, id_parent, rating)
+            (last_name, first_name, patronymic, phone, vk,
+             id_city, id_parent, id_institution, rating)
         VALUES
-            (:last_name, :first_name, :patronymic, :phone, :vk, :id_city, :id_parent, :rating)
+            (:last_name, :first_name, :patronymic, :phone, :vk,
+             :id_city, :id_parent, :id_institution, :rating)
     """), {
-        "last_name":  data.last_name,
-        "first_name": data.first_name,
-        "patronymic": data.patronymic,
-        "phone":      data.phone,
-        "vk":         data.vk,
-        "id_city":    id_city,
-        "id_parent":  id_parent,
-        "rating":     rating,
+        "last_name":      data.last_name,
+        "first_name":     data.first_name,
+        "patronymic":     data.patronymic,
+        "phone":          data.phone,
+        "vk":             data.vk,
+        "id_city":        id_city,
+        "id_parent":      id_parent,
+        "id_institution": id_institution,
+        "rating":         rating,
     })
     applicant_id = res.lastrowid
 
@@ -298,6 +320,12 @@ async def create_applicant(
     })
 
     await db.commit()
+
+    # записываем в аудит — создание абитуриента
+    fio = " ".join(filter(None, [data.last_name, data.first_name, data.patronymic]))
+    await log_action(db, current_user, "create", applicant_id, fio)
+    await db.commit()
+
     return {"id": applicant_id}
 
 
@@ -321,6 +349,7 @@ async def update_applicant(
         raise HTTPException(404, "Абитуриент не найден")
 
     id_city        = await _get_or_create_city(db, data.city, data.region)
+    id_institution = await _get_or_create_institution(db, data.institution)
     id_benefit, bonus_points = await _get_benefit(db, data.benefit)
     id_source      = await _get_or_create_source(db, data.info_source)
     rating         = float(bonus_points or 0)
@@ -352,18 +381,19 @@ async def update_applicant(
         UPDATE Applicant SET
             last_name=:last_name, first_name=:first_name, patronymic=:patronymic,
             phone=:phone, vk=:vk, id_city=:id_city,
-            id_parent=:id_parent, rating=:rating
+            id_parent=:id_parent, id_institution=:id_institution, rating=:rating
         WHERE id_applicant=:id
     """), {
-        "last_name":  data.last_name,
-        "first_name": data.first_name,
-        "patronymic": data.patronymic,
-        "phone":      data.phone,
-        "vk":         data.vk,
-        "id_city":    id_city,
-        "id_parent":  id_parent,
-        "rating":     rating,
-        "id":         applicant_id,
+        "last_name":      data.last_name,
+        "first_name":     data.first_name,
+        "patronymic":     data.patronymic,
+        "phone":          data.phone,
+        "vk":             data.vk,
+        "id_city":        id_city,
+        "id_parent":      id_parent,
+        "id_institution": id_institution,
+        "rating":         rating,
+        "id":             applicant_id,
     })
 
     # Заявление — upsert
@@ -430,7 +460,11 @@ async def update_applicant(
             "id_source": id_source, "dormitory": int(data.dormitory),
         })
 
+    # записываем в аудит — обновление абитуриента
+    fio = " ".join(filter(None, [data.last_name, data.first_name, data.patronymic]))
+    await log_action(db, current_user, "update", applicant_id, fio)
     await db.commit()
+
     return {"ok": True}
 
 
@@ -451,9 +485,19 @@ async def delete_applicant(
     if not r.first():
         raise HTTPException(404, "Абитуриент не найден")
 
+    # получаем ФИО до удаления для аудита
+    fio_row = await db.execute(text(
+        "SELECT CONCAT_WS(' ', last_name, first_name, patronymic) AS fio FROM Applicant WHERE id_applicant = :id"
+    ), {"id": applicant_id})
+    fio_data = fio_row.mappings().first()
+    fio = fio_data["fio"] if fio_data else str(applicant_id)
+
     await db.execute(text(
         "DELETE FROM Applicant WHERE id_applicant = :id"
     ), {"id": applicant_id})
+
+    # записываем в аудит — удаление абитуриента
+    await log_action(db, current_user, "delete", applicant_id, fio)
     await db.commit()
 
     # Сбрасываем AUTO_INCREMENT до MAX(id)+1 чтобы новые записи
@@ -522,8 +566,7 @@ async def reset_autoincrement(
         r = await db.execute(text(f"SELECT COALESCE(MAX({col}), 0) + 1 AS nxt FROM `{table}`"))
         nxt = r.scalar() or 1
         await db.execute(text(f"ALTER TABLE `{table}` AUTO_INCREMENT = {int(nxt)}"))
-    await db.commit()
-    return {"ok": True}
+
 
 # ── Экзамены ──────────────────────────────────────────────────────────────────
 

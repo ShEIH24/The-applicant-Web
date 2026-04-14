@@ -1,47 +1,40 @@
-// ── Адаптация под мобильные ────────────────────────────────────────────────
-function measureHeaderHeight() {
-  const header  = document.querySelector('.app-header');
-  const toolbar = document.querySelector('.toolbar');
-  if (!header || !toolbar) return;
-  document.documentElement.style.setProperty(
-    '--header-offset',
-    (header.offsetHeight + toolbar.offsetHeight) + 'px'
-  );
-}
-measureHeaderHeight();
-window.addEventListener('resize', measureHeaderHeight);
-
 /* logs.js — страница журнала системы */
 'use strict';
 
 const _token = AppStorage.get('access_token');
 const _role  = AppStorage.get('user_role');
 if (!_token) { AppStorage.clear(); location.href = '/'; }
-if (_role !== 'admin') { location.href = '/dashboard'; }  // только admin
+if (_role !== 'admin') { location.href = '/dashboard'; }
 
 const HDRS = { 'Authorization': `Bearer ${_token}`, 'Content-Type': 'application/json' };
 
-// Показываем имя и роль
-const _uname = AppStorage.get('user_name') || '';
-const _unEl  = document.getElementById('userName');
-if (_unEl) _unEl.textContent = _uname;
+// шапка
+const _unEl = document.getElementById('userName');
+if (_unEl) _unEl.textContent = AppStorage.get('user_name') || '';
 const _pill = document.getElementById('rolePill');
 if (_pill) { _pill.textContent = _role; _pill.className = `role-pill ${_role}`; }
 document.getElementById('logoutBtn').addEventListener('click', () => { AppStorage.clear(); location.href = '/'; });
+
+// логотип — fallback
+const _li = document.getElementById('logoImg');
+if (_li) _li.addEventListener('error', function () { this.style.display='none'; this.parentElement.textContent='А'; });
 
 async function apiFetch(url) {
   try {
     const r = await fetch(url, { headers: HDRS });
     if (r.status === 401) { AppStorage.clear(); location.href = '/'; return null; }
-    return r.ok ? r.json() : null;
+    if (!r.ok) { console.error('HTTP', r.status, url); return null; }
+    return r.json();
   } catch (e) { console.error(e); return null; }
 }
 
-function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 function loading(el) { el.innerHTML = '<div class="rp-loading"><div class="rp-spinner"></div>Загрузка...</div>'; }
 function empty(el, msg='Нет данных') { el.innerHTML = `<div class="rp-empty">${msg}</div>`; }
 
-// ── Tabs ──────────────────────────────────────────────────────────
+// ── Переключение вкладок ──────────────────────────────────────────
 document.querySelectorAll('.rp-tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.rp-tab').forEach(t => t.classList.remove('active'));
@@ -52,15 +45,12 @@ document.querySelectorAll('.rp-tab').forEach(tab => {
   });
 });
 
-// ══════════════════════════════════════════════════════════════════
-// ТАБ 1: СИСТЕМНЫЕ ЛОГИ (файл app.log)
-// ══════════════════════════════════════════════════════════════════
+// ══ ТАБ 1: СИСТЕМНЫЕ ЛОГИ ════════════════════════════════════════
 
-const LEVEL_ORDER = ['CRITICAL', 'ERROR', 'WARNING', 'INFO'];
 const ACT_LABEL = { create:'➕ Создание', update:'✏️ Изменение', delete:'🗑 Удаление' };
 
 async function loadFileLogs() {
-  const area    = document.getElementById('fileLogsArea');
+  const area     = document.getElementById('fileLogsArea');
   const levelBar = document.getElementById('levelBar');
   loading(area);
 
@@ -75,21 +65,20 @@ async function loadFileLogs() {
   const data = await apiFetch('/api/audit/file-logs?' + params);
   if (!data) { empty(area, 'Ошибка загрузки логов'); return; }
 
-  const entries = data.entries;
+  const entries = data.entries || [];
   const countEl = document.getElementById('logsCount');
-  if (countEl) countEl.textContent = `${entries.length} записей`;
+  if (countEl) countEl.textContent = `${entries.length} из ${data.total} записей`;
 
-  // ── Level bar ─────────────────────────────────────────────────
-  const counts = { INFO:0, WARNING:0, ERROR:0, CRITICAL:0, AUDIT:0 };
+  // level bar — статистика по уровням
+  const counts = { INFO:0, WARNING:0, ERROR:0, CRITICAL:0 };
   entries.forEach(e => {
-    const l = e.level?.toUpperCase() || 'INFO';
-    if (l === 'INFO' && (e.msg||'').startsWith('AUDIT')) counts.AUDIT++;
-    else if (counts[l] !== undefined) counts[l]++;
+    const l = (e.level || 'INFO').toUpperCase();
+    if (counts[l] !== undefined) counts[l]++;
   });
   levelBar.innerHTML = Object.entries(counts)
     .filter(([,v]) => v > 0)
-    .map(([l,v]) => `
-      <div class="level-chip ${l}" onclick="filterByLevel('${l === 'AUDIT' ? '' : l}')">
+    .map(([l, v]) => `
+      <div class="level-chip ${l}" onclick="filterByLevel('${l}')">
         <span class="level-count">${v}</span>
         <span>${l}</span>
       </div>`)
@@ -97,23 +86,21 @@ async function loadFileLogs() {
 
   if (!entries.length) { empty(area, 'Логов нет — попробуйте изменить фильтры'); return; }
 
-  // ── Таблица ───────────────────────────────────────────────────
   const rows = entries.map(e => {
-    const lvl  = (e.level || 'INFO').toUpperCase();
-    const isAudit = lvl === 'INFO' && (e.msg||'').startsWith('AUDIT');
-    const badge = isAudit ? 'AUDIT' : lvl;
-    const msg   = esc(e.msg || '');
+    const lvl = (e.level || 'INFO').toUpperCase();
     const extra = [];
     if (e.user)   extra.push(`<span class="log-extra-key">user:</span> <b>${esc(e.user)}</b>`);
     if (e.path)   extra.push(`<span class="log-extra-key">path:</span> ${esc(e.path)}`);
     if (e.status) extra.push(`<span class="log-extra-key">status:</span> ${esc(e.status)}`);
-    if (e.exc)    extra.push(`<span style="color:#c62828;font-size:11px">${esc(e.exc.slice(0,200))}</span>`);
+    if (e.exc)    extra.push(`<span style="color:#c62828;font-size:11px">${esc(String(e.exc).slice(0,300))}</span>`);
     return `
-      <tr class="log-row-${isAudit ? 'INFO' : lvl}">
+      <tr class="log-row-${lvl}">
         <td style="white-space:nowrap;color:#9ca3af;font-size:11px">${esc(e.ts || '')}</td>
-        <td><span class="log-badge ${badge}">${badge}</span></td>
+        <td><span class="log-badge ${lvl}">${lvl}</span></td>
         <td style="color:#6b7280;font-size:11px;white-space:nowrap">${esc(e.logger || '')}</td>
-        <td class="msg">${msg}${extra.length ? '<br><span style="color:#9ca3af;font-size:11px">'+extra.join(' &nbsp;·&nbsp; ')+'</span>' : ''}</td>
+        <td class="msg">${esc(e.msg || '')}${extra.length
+          ? '<br><span style="color:#9ca3af;font-size:11px">' + extra.join(' &nbsp;·&nbsp; ') + '</span>'
+          : ''}</td>
       </tr>`;
   }).join('');
 
@@ -128,6 +115,7 @@ async function loadFileLogs() {
     </div>`;
 }
 
+// глобальная функция — вызывается из onclick в level-chip
 window.filterByLevel = function(lvl) {
   document.getElementById('filterLevel').value = lvl;
   loadFileLogs();
@@ -145,18 +133,16 @@ document.getElementById('filterSearch').addEventListener('keydown', e => {
   if (e.key === 'Enter') loadFileLogs();
 });
 
-// ══════════════════════════════════════════════════════════════════
-// ТАБ 2: ДЕЙСТВИЯ ПОЛЬЗОВАТЕЛЕЙ (Audit_log в MySQL)
-// ══════════════════════════════════════════════════════════════════
+// ══ ТАБ 2: ДЕЙСТВИЯ ПОЛЬЗОВАТЕЛЕЙ ════════════════════════════════
 
 const ACT_CLS = { create:'green', update:'yellow', delete:'red' };
 
 async function loadAudit() {
-  const area   = document.getElementById('auditLogsArea');
-  const sumEl  = document.getElementById('auditSummary');
+  const area  = document.getElementById('auditLogsArea');
+  const sumEl = document.getElementById('auditSummary');
   loading(area);
 
-  // Сводка
+  // сводка
   const stats = await apiFetch('/api/audit/stats');
   if (stats) {
     const s = stats.stats;
@@ -168,12 +154,12 @@ async function loadAudit() {
       <div class="rp-sum-card gray"><div class="rp-sum-num">${s.last_7_days}</div><div>За 7 дней</div></div>`;
   }
 
-  // Лента
+  // лента
   const action = document.getElementById('auditAction').value;
   const user   = document.getElementById('auditUser').value.trim();
   const params = new URLSearchParams({ limit: 300 });
   if (action) params.set('action', action);
-  if (user)   params.set('user', user);
+  if (user)   params.set('user',   user);
 
   const rows = await apiFetch('/api/audit/recent?' + params);
   if (!rows) { empty(area, 'Ошибка загрузки'); return; }
@@ -184,23 +170,29 @@ async function loadAudit() {
     return `
       <div class="audit-row audit-${r.action}">
         <div class="audit-meta">
-          <span class="rp-badge ${ACT_CLS[r.action]||'gray'}">${ACT_LABEL[r.action]||r.action}</span>
-          <span class="audit-fio">${esc(r.applicant_fio)}</span>
+          <span class="rp-badge ${ACT_CLS[r.action] || 'gray'}">${ACT_LABEL[r.action] || r.action}</span>
+          <span class="audit-fio">${esc(r.applicant_fio || '—')}</span>
           <span class="audit-user">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            ${esc(r.changed_by)} <span class="audit-role">${esc(r.changed_by_role)}</span>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+            ${esc(r.changed_by)} <span class="audit-role">${esc(r.changed_by_role || '')}</span>
           </span>
           <span class="audit-time">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            ${r.changed_at}
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            ${esc(r.changed_at || '')}
           </span>
         </div>
         ${isUpd ? `
         <div class="audit-change">
           <span class="audit-field">${esc(r.field_name)}</span>
-          <span class="audit-old">${esc(r.old_value||'—')}</span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5c6bc0" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-          <span class="audit-new">${esc(r.new_value||'—')}</span>
+          <span class="audit-old">${esc(r.old_value || '—')}</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5c6bc0" stroke-width="2">
+            <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+          </svg>
+          <span class="audit-new">${esc(r.new_value || '—')}</span>
         </div>` : ''}
       </div>`;
   }).join('');
@@ -208,13 +200,6 @@ async function loadAudit() {
 
 document.getElementById('btnLoadAudit').addEventListener('click', loadAudit);
 
-// ── Logo fallback ─────────────────────────────────────────────────
-const _li = document.getElementById('logoImg');
-if (_li) _li.addEventListener('error', function () {
-  this.style.display = 'none';
-  this.parentElement.textContent = 'А';
-});
-
-// ── Init ──────────────────────────────────────────────────────────
+// ── Инициализация ─────────────────────────────────────────────────
 loadFileLogs();
 loadAudit();

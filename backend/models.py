@@ -25,7 +25,7 @@ class Institution(Base):
     __tablename__ = "Institution"
     id_institution   = Column(Integer, primary_key=True, autoincrement=True)
     name_institution = Column(String(255), nullable=False)
-    id_city          = Column(Integer, ForeignKey("City.id_city", ondelete="SET NULL", onupdate="CASCADE"))
+    # id_city убран — был источником циклической зависимости City→Institution→Applicant→City
 
 
 class Benefit(Base):
@@ -64,7 +64,9 @@ class Applicant(Base):
     id_city      = Column(Integer, ForeignKey("City.id_city",   ondelete="SET NULL", onupdate="CASCADE"))
     phone        = Column(String(20), nullable=False)
     vk           = Column(String(255))
-    id_parent      = Column(Integer, ForeignKey("Parent.id_parent", ondelete="SET NULL", onupdate="CASCADE"))
+    id_parent      = Column(Integer, ForeignKey("Parent.id_parent",        ondelete="SET NULL", onupdate="CASCADE"))
+    # FK на Institution; у Institution нет FK на City — петля разорвана
+    id_institution = Column(Integer, ForeignKey("Institution.id_institution", ondelete="SET NULL", onupdate="CASCADE"))
     # итоговый рейтинг = сумма экзаменов + бонус льготы
     rating         = Column(Float, nullable=False, default=0)
 
