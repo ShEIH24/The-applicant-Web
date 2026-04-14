@@ -23,22 +23,22 @@ import subprocess
 import getpass
 import asyncio
 
-# ── Цвета для терминала ───────────────────────────────────────────────────────
+# коды цветов ANSI для красивого вывода в терминале
 G  = "\033[92m"   # зелёный
 Y  = "\033[93m"   # жёлтый
 R  = "\033[91m"   # красный
 B  = "\033[94m"   # синий
 W  = "\033[97m"   # белый жирный
-RS = "\033[0m"    # сброс
+RS = "\033[0m"    # сброс цвета
 
-def ok(msg):  print(f"  {G}✓{RS}  {msg}")
-def warn(msg):print(f"  {Y}⚠{RS}  {msg}")
-def err(msg): print(f"  {R}✗{RS}  {msg}")
-def info(msg):print(f"  {B}→{RS}  {msg}")
+def ok(msg):   print(f"  {G}✓{RS}  {msg}")
+def warn(msg): print(f"  {Y}⚠{RS}  {msg}")
+def err(msg):  print(f"  {R}✗{RS}  {msg}")
+def info(msg): print(f"  {B}→{RS}  {msg}")
 def header(msg): print(f"\n{W}{msg}{RS}")
 
 
-# ── Шаг 1: Установка зависимостей ────────────────────────────────────────────
+# Шаг 1: Установка зависимостей
 def step_install():
     header("Шаг 1/5 — Установка зависимостей")
     if not os.path.exists("requirements.txt"):
@@ -52,12 +52,13 @@ def step_install():
     )
     if result.returncode != 0:
         err("Ошибка установки:")
+        # показываем последние 1000 символов ошибки — обычно достаточно
         print(result.stderr[-1000:])
         sys.exit(1)
     ok("Все зависимости установлены")
 
 
-# ── Шаг 2: Настройка .env ─────────────────────────────────────────────────────
+# Шаг 2: Настройка .env
 def step_env():
     header("Шаг 2/5 — Настройка подключения к базе данных")
 
@@ -65,7 +66,7 @@ def step_env():
     env_data = {}
 
     if os.path.exists(env_path):
-        # Читаем существующий .env
+        # читаем существующий .env в словарь
         with open(env_path) as f:
             for line in f:
                 line = line.strip()
@@ -76,8 +77,8 @@ def step_env():
     else:
         warn(".env не найден — создаём новый")
 
-    # Спрашиваем только то чего нет
     def ask(key, prompt, default="", secret=False):
+        """спрашивает значение у пользователя, оставляя текущее при пустом вводе"""
         current = env_data.get(key, default)
         display = f" [{current if not secret else '****'}]" if current else ""
         if secret:
@@ -95,13 +96,14 @@ def step_env():
     ask("DB_PORT",     "Порт MySQL",       "3306")
     ask("DB_NAME",     "Имя базы данных",  "applicantdb")
     ask("DB_USER",     "Пользователь",     "root")
-    ask("DB_PASSWORD", "Пароль",           "",  secret=True)
+    ask("DB_PASSWORD", "Пароль",           "Korol2212!",  secret=True)
 
     print()
     print("  Данные первого администратора:")
     ask("ADMIN_USERNAME", "Логин администратора",  "admin")
     ask("ADMIN_FULLNAME", "ФИО администратора",    "Главный администратор")
 
+    # проверяем сложность пароля: минимум 8 символов, буква и цифра
     while True:
         pwd = getpass.getpass("    Пароль администратора (мин. 8 символов, буква + цифра): ")
         if len(pwd) >= 8 and any(c.isalpha() for c in pwd) and any(c.isdigit() for c in pwd):
@@ -109,15 +111,15 @@ def step_env():
             break
         warn("Пароль слишком простой, попробуйте ещё раз")
 
-    # Устанавливаем остальные дефолты
     import secrets
+    # генерируем SECRET_KEY если его нет или он дефолтный
     if not env_data.get("SECRET_KEY") or env_data.get("SECRET_KEY","").startswith("dev-"):
-        env_data["SECRET_KEY"]          = secrets.token_hex(32)
+        env_data["SECRET_KEY"] = secrets.token_hex(32)
         ok("SECRET_KEY сгенерирован автоматически")
     env_data.setdefault("APP_ENV",              "development")
     env_data.setdefault("TOKEN_EXPIRE_MINUTES", "60")
 
-    # Записываем .env
+    # записываем итоговый .env на диск
     lines = [
         "# Реестр абитуриентов — настройки (не коммитить в git!)\n",
         f"APP_ENV={env_data['APP_ENV']}\n",
@@ -141,14 +143,14 @@ def step_env():
     return env_data
 
 
-# ── Шаг 3+4: Проверка БД и применение схемы ──────────────────────────────────
+# Шаг 3+4: Проверка БД и применение схемы
 async def step_database(env_data: dict):
     header("Шаг 3/5 — Подключение к MySQL и создание базы данных")
 
     host = env_data.get("DB_HOST", "localhost")
     port = int(env_data.get("DB_PORT", 3306))
     user = env_data.get("DB_USER", "root")
-    pwd  = env_data.get("DB_PASSWORD", "")
+    pwd  = env_data.get("DB_PASSWORD", "Korol2212!")
     db   = env_data.get("DB_NAME", "applicantdb")
 
     try:
@@ -157,7 +159,7 @@ async def step_database(env_data: dict):
         err("aiomysql не установлен — запустите: pip install aiomysql")
         sys.exit(1)
 
-    # Подключаемся БЕЗ указания базы чтобы создать её если нужно
+    # подключаемся без указания базы — она может ещё не существовать
     info(f"Подключение к MySQL {user}@{host}:{port} ...")
     try:
         conn = await aiomysql.connect(
@@ -172,14 +174,14 @@ async def step_database(env_data: dict):
     ok(f"Подключение к MySQL установлено")
 
     async with conn.cursor() as cur:
-        # Создаём базу если нет
+        # создаём базу если её нет, сразу с нужной кодировкой
         await cur.execute(
             f"CREATE DATABASE IF NOT EXISTS `{db}` "
             "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
         )
         ok(f"База данных '{db}' готова")
 
-        # Применяем схему если файл есть
+        # ищем schema.sql сначала в ../db/, потом рядом со скриптом
         schema_path = os.path.join("..", "db", "schema.sql")
         if not os.path.exists(schema_path):
             schema_path = "schema.sql"
@@ -190,14 +192,14 @@ async def step_database(env_data: dict):
             with open(schema_path, "r", encoding="utf-8") as f:
                 sql = f.read()
 
-            # Выполняем каждый statement отдельно
+            # делим файл на отдельные SQL-выражения и выполняем по одному
             statements = [s.strip() for s in sql.split(";") if s.strip()]
             errors = 0
             for stmt in statements:
                 try:
                     await cur.execute(stmt)
                 except Exception as e:
-                    # Таблица уже существует — не ошибка
+                    # "already exists" — не ошибка, просто таблица уже есть
                     if "already exists" not in str(e).lower():
                         warn(f"SQL: {str(e)[:80]}")
                         errors += 1
@@ -211,7 +213,7 @@ async def step_database(env_data: dict):
     conn.close()
 
 
-# ── Шаг 5: Запуск сервера ─────────────────────────────────────────────────────
+# Шаг 5: Запуск сервера
 def step_run():
     header("Шаг 5/5 — Запуск сервера")
     print()
@@ -221,6 +223,7 @@ def step_run():
     info("Для остановки нажмите Ctrl+C")
     print()
 
+    # os.execv заменяет текущий процесс uvicorn-ом — PID не меняется
     os.execv(
         sys.executable,
         [sys.executable, "-m", "uvicorn", "main:app",
@@ -228,7 +231,7 @@ def step_run():
     )
 
 
-# ── Главная функция ───────────────────────────────────────────────────────────
+# Главная функция
 async def main_async(env_data):
     await step_database(env_data)
 
@@ -239,7 +242,7 @@ def main():
     print(f"{W}   Реестр абитуриентов — первоначальная настройка{RS}")
     print(f"{W}{'═'*54}{RS}")
 
-    # Убедимся что запускаем из папки backend/
+    # скрипт должен запускаться из папки backend/ рядом с main.py
     if not os.path.exists("main.py"):
         err("Запустите setup.py из папки backend/")
         err(f"Текущая папка: {os.getcwd()}")

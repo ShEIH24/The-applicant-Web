@@ -10,6 +10,7 @@ import bcrypt
 import os
 import sys
 
+# добавляем директорию скрипта в путь поиска модулей
 sys.path.insert(0, os.path.dirname(__file__))
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
@@ -17,31 +18,36 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import select
 from models import Base, User
 
+# подключение берётся из переменной окружения, иначе — дефолтная строка
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "mysql+aiomysql://root:Geklol2005!@localhost:3306/applicantdb?charset=utf8mb4"
+    "mysql+aiomysql://root:Korol2212!@localhost:3306/applicantdb?charset=utf8mb4"
 )
 
 
 def hash_password(plain: str) -> str:
+    # солим и хешируем пароль через bcrypt
     return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 async def create_admin(username: str, password: str, full_name: str):
     engine = create_async_engine(DATABASE_URL, echo=False)
 
+    # создаём таблицы если их ещё нет
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session() as session:
+        # проверяем — вдруг такой пользователь уже есть
         result = await session.execute(select(User).where(User.username == username))
         if result.scalar_one_or_none():
             print(f"[!] Пользователь '{username}' уже существует.")
             await engine.dispose()
             return
 
+        # создаём запись администратора
         admin = User(
             username      = username,
             password_hash = hash_password(password),
@@ -53,6 +59,7 @@ async def create_admin(username: str, password: str, full_name: str):
         await session.commit()
         print(f"[✓] Администратор '{username}' успешно создан.")
 
+    # закрываем пул соединений
     await engine.dispose()
 
 

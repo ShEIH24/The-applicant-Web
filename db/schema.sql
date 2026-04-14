@@ -1,340 +1,446 @@
--- schema.sql — полная схема БД «Реестр абитуриентов»
+-- ============================================================
+-- Реестр абитуриентов — схема MySQL
+-- ============================================================
+CREATE DATABASE IF NOT exists applicantdb;
 
+use applicantdb;
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
--- ── Создаём БД если не существует ───────────────────────────────
-CREATE DATABASE IF NOT EXISTS applicantdb
-    CHARACTER SET utf8mb4
-    COLLATE utf8mb4_unicode_ci;
+-- ------------------------------------------------------------
+-- Справочники
+-- ------------------------------------------------------------
 
-USE applicantdb;
-
--- ================================================================
--- СПРАВОЧНИКИ
--- ================================================================
-
--- Регионы
 CREATE TABLE IF NOT EXISTS Region (
-    id_region   INT          NOT NULL AUTO_INCREMENT,
-    name_region VARCHAR(255) NOT NULL,
-    PRIMARY KEY (id_region),
-    CONSTRAINT uq_region_name UNIQUE (name_region)
+    id_region   INT AUTO_INCREMENT PRIMARY KEY,
+    name_region VARCHAR(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Города
 CREATE TABLE IF NOT EXISTS City (
-    id_city    INT          NOT NULL AUTO_INCREMENT,
-    name_city  VARCHAR(255) NOT NULL,
-    id_region  INT          NULL,
-    PRIMARY KEY (id_city),
-    CONSTRAINT fk_city_region
-        FOREIGN KEY (id_region) REFERENCES Region (id_region)
+    id_city     INT AUTO_INCREMENT PRIMARY KEY,
+    name_city   VARCHAR(255) NOT NULL,
+    id_region   INT,
+    FOREIGN KEY (id_region) REFERENCES Region(id_region)
         ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Льготы
-CREATE TABLE IF NOT EXISTS Benefit (
-    id_benefit   INT          NOT NULL AUTO_INCREMENT,
-    name_benefit VARCHAR(255) NOT NULL,
-    bonus_points INT          NOT NULL DEFAULT 0,
-    PRIMARY KEY (id_benefit),
-    CONSTRAINT uq_benefit_name UNIQUE (name_benefit)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Источники информации
-CREATE TABLE IF NOT EXISTS Information_source (
-    id_source   INT          NOT NULL AUTO_INCREMENT,
-    name_source VARCHAR(255) NOT NULL,
-    PRIMARY KEY (id_source),
-    CONSTRAINT uq_source_name UNIQUE (name_source)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Учреждения (школы/колледжи откуда пришёл абитуриент)
 CREATE TABLE IF NOT EXISTS Institution (
-    id_institution   INT          NOT NULL AUTO_INCREMENT,
-    name_institution VARCHAR(500) NOT NULL,
-    id_city          INT          NULL,
-    PRIMARY KEY (id_institution),
-    CONSTRAINT fk_institution_city
-        FOREIGN KEY (id_city) REFERENCES City (id_city)
+    id_institution   INT AUTO_INCREMENT PRIMARY KEY,
+    name_institution VARCHAR(255) NOT NULL,
+    id_city          INT,
+    FOREIGN KEY (id_city) REFERENCES City(id_city)
         ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Предметы ЕГЭ
+CREATE TABLE IF NOT EXISTS Benefit (
+    id_benefit   INT AUTO_INCREMENT PRIMARY KEY,
+    name_benefit VARCHAR(255) NOT NULL,
+    bonus_points INT          NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS Information_source (
+    id_source   INT AUTO_INCREMENT PRIMARY KEY,
+    name_source VARCHAR(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS Subject (
-    id_subject   INT          NOT NULL AUTO_INCREMENT,
-    name_subject VARCHAR(255) NOT NULL,
-    PRIMARY KEY (id_subject),
-    CONSTRAINT uq_subject_name UNIQUE (name_subject)
+    id_subject   INT AUTO_INCREMENT PRIMARY KEY,
+    name_subject VARCHAR(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ================================================================
--- ПОЛЬЗОВАТЕЛИ СИСТЕМЫ
--- ================================================================
+-- ------------------------------------------------------------
+-- Родитель / опекун
+-- ------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS User (
-    id_user       INT          NOT NULL AUTO_INCREMENT,
-    username      VARCHAR(100) NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    full_name     VARCHAR(255) NOT NULL DEFAULT '',
-    role          ENUM('admin','editor','viewer') NOT NULL DEFAULT 'viewer',
-    is_active     TINYINT(1)   NOT NULL DEFAULT 1,
-    created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id_user),
-    CONSTRAINT uq_username UNIQUE (username)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- ================================================================
--- АБИТУРИЕНТЫ
--- ================================================================
-
--- Родители / законные представители
 CREATE TABLE IF NOT EXISTS Parent (
-    id_parent INT          NOT NULL AUTO_INCREMENT,
-    name      VARCHAR(255) NOT NULL,
-    phone     VARCHAR(30)  NULL,
-    relation  VARCHAR(100) NOT NULL DEFAULT 'Родитель',
-    PRIMARY KEY (id_parent)
+    id_parent INT AUTO_INCREMENT PRIMARY KEY,
+    name      VARCHAR(100),
+    phone     VARCHAR(20),
+    relation  VARCHAR(50) DEFAULT 'Родитель'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Основная таблица абитуриентов
+-- ------------------------------------------------------------
+-- Абитуриент
+-- Поле rating — вычисляется триггером (базовый рейтинг + бонусные баллы)
+-- Хранится в столбце для быстрого доступа; обновляется автоматически.
+-- ------------------------------------------------------------
+
 CREATE TABLE IF NOT EXISTS Applicant (
-    id_applicant INT          NOT NULL AUTO_INCREMENT,
-    last_name    VARCHAR(100) NOT NULL,
-    first_name   VARCHAR(100) NOT NULL,
-    patronymic   VARCHAR(100) NULL,
-    phone        VARCHAR(30)  NULL,
-    vk           VARCHAR(255) NULL,
-    rating       DECIMAL(8,2) NOT NULL DEFAULT 0,
-    id_city      INT          NULL,
-    id_parent    INT          NULL,
-    PRIMARY KEY (id_applicant),
-    CONSTRAINT fk_applicant_city
-        FOREIGN KEY (id_city) REFERENCES City (id_city)
-        ON DELETE SET NULL ON UPDATE CASCADE,
-    CONSTRAINT fk_applicant_parent
-        FOREIGN KEY (id_parent) REFERENCES Parent (id_parent)
-        ON DELETE SET NULL ON UPDATE CASCADE
+    id_applicant    INT AUTO_INCREMENT PRIMARY KEY,
+    last_name       VARCHAR(100) NOT NULL,
+    first_name      VARCHAR(100) NOT NULL,
+    patronymic      VARCHAR(100),
+    id_city         INT,
+    phone           VARCHAR(20)  NOT NULL,
+    vk              VARCHAR(255),
+    id_parent       INT,
+    -- Рейтинг хранится здесь и пересчитывается триггером
+    rating          FLOAT        NOT NULL DEFAULT 0,
+    FOREIGN KEY (id_city)   REFERENCES City(id_city)     ON DELETE SET NULL ON UPDATE CASCADE,
+    FOREIGN KEY (id_parent) REFERENCES Parent(id_parent) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Заявление (код специальности, форма обучения, оригинал)
+-- ------------------------------------------------------------
+-- Заявление
+-- ------------------------------------------------------------
+
 CREATE TABLE IF NOT EXISTS Application (
-    id_application  INT          NOT NULL AUTO_INCREMENT,
-    id_applicant    INT          NOT NULL,
-    code            VARCHAR(20)  NULL      COMMENT 'Код специальности, напр. 09.03.01',
-    base_rating     DECIMAL(8,2) NOT NULL DEFAULT 0,
+    id_application  INT AUTO_INCREMENT PRIMARY KEY,
+    id_applicant    INT NOT NULL,
+    code            VARCHAR(50)  NOT NULL,
+    base_rating     FLOAT        NOT NULL DEFAULT 0,  -- введённый вручную рейтинг
     has_original    TINYINT(1)   NOT NULL DEFAULT 0,
-    submission_date DATE         NULL,
+    submission_date DATE,
     form_education  VARCHAR(50)  NOT NULL DEFAULT 'Очная',
-    id_institution  INT          NULL,
-    PRIMARY KEY (id_application),
-    CONSTRAINT fk_app_applicant
-        FOREIGN KEY (id_applicant) REFERENCES Applicant (id_applicant)
-        ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT fk_app_institution
-        FOREIGN KEY (id_institution) REFERENCES Institution (id_institution)
-        ON DELETE SET NULL ON UPDATE CASCADE
+    FOREIGN KEY (id_applicant) REFERENCES Applicant(id_applicant) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Льготы абитуриента (связь многие-ко-многим)
+-- ------------------------------------------------------------
+-- Связь: Абитуриент ↔ Льгота  (M:N)
+-- ------------------------------------------------------------
+
 CREATE TABLE IF NOT EXISTS Applicant_benefit (
     id_applicant INT NOT NULL,
     id_benefit   INT NOT NULL,
     PRIMARY KEY (id_applicant, id_benefit),
-    CONSTRAINT fk_ab_applicant
-        FOREIGN KEY (id_applicant) REFERENCES Applicant (id_applicant)
-        ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT fk_ab_benefit
-        FOREIGN KEY (id_benefit) REFERENCES Benefit (id_benefit)
-        ON DELETE CASCADE ON UPDATE CASCADE
+    FOREIGN KEY (id_applicant) REFERENCES Applicant(id_applicant) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (id_benefit)   REFERENCES Benefit(id_benefit)     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ------------------------------------------------------------
 -- Дополнительная информация
+-- ------------------------------------------------------------
+
 CREATE TABLE IF NOT EXISTS Additional_info (
-    id_info          INT      NOT NULL AUTO_INCREMENT,
-    id_applicant     INT      NOT NULL,
-    department_visit DATE     NULL      COMMENT 'Дата посещения приёмной комиссии',
-    notes            TEXT     NULL,
-    id_source        INT      NULL,
-    dormitory_needed TINYINT(1) NOT NULL DEFAULT 0,
-    PRIMARY KEY (id_info),
-    CONSTRAINT fk_ai_applicant
-        FOREIGN KEY (id_applicant) REFERENCES Applicant (id_applicant)
-        ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT fk_ai_source
-        FOREIGN KEY (id_source) REFERENCES Information_source (id_source)
-        ON DELETE SET NULL ON UPDATE CASCADE
+    id_info           INT AUTO_INCREMENT PRIMARY KEY,
+    id_applicant      INT NOT NULL,
+    department_visit  DATE,
+    notes             TEXT,
+    id_source         INT,
+    dormitory_needed  TINYINT(1) NOT NULL DEFAULT 0,
+    FOREIGN KEY (id_applicant) REFERENCES Applicant(id_applicant) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (id_source)    REFERENCES Information_source(id_source) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Результаты ЕГЭ
+-- ------------------------------------------------------------
+-- Экзамен  (результаты сдачи предметов)
+-- Ограничение UNIQUE: один абитуриент — один раз сдаёт предмет
+-- ------------------------------------------------------------
+
 CREATE TABLE IF NOT EXISTS Exam (
-    id_exam      INT          NOT NULL AUTO_INCREMENT,
-    id_applicant INT          NOT NULL,
-    id_subject   INT          NOT NULL,
-    score        DECIMAL(5,2) NOT NULL DEFAULT 0,
-    PRIMARY KEY (id_exam),
-    CONSTRAINT fk_exam_applicant
-        FOREIGN KEY (id_applicant) REFERENCES Applicant (id_applicant)
-        ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT fk_exam_subject
-        FOREIGN KEY (id_subject) REFERENCES Subject (id_subject)
-        ON DELETE CASCADE ON UPDATE CASCADE
+    id_exam      INT AUTO_INCREMENT PRIMARY KEY,
+    id_applicant INT   NOT NULL,
+    id_subject   INT   NOT NULL,
+    score        FLOAT NOT NULL DEFAULT 0,
+    UNIQUE KEY uq_applicant_subject (id_applicant, id_subject),   -- нельзя сдать предмет дважды
+    FOREIGN KEY (id_applicant) REFERENCES Applicant(id_applicant) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (id_subject)   REFERENCES Subject(id_subject)     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ================================================================
--- АУДИТ
--- ================================================================
+-- ------------------------------------------------------------
+-- Пользователи системы (авторизация)
+-- ------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS Users (
+    id_user       INT AUTO_INCREMENT PRIMARY KEY,
+    username      VARCHAR(100) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name     VARCHAR(255),
+    role          ENUM('admin','editor','viewer') NOT NULL DEFAULT 'viewer',
+    is_active     TINYINT(1) NOT NULL DEFAULT 1,
+    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by    INT,
+    FOREIGN KEY (created_by) REFERENCES Users(id_user) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+-- ------------------------------------------------------------
+-- Лог аудита — история действий пользователей
+-- applicant_id намеренно без FK: запись должна жить
+-- дольше самого абитуриента (история не теряется при удалении)
+-- ------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS Audit_log (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     action          ENUM('create','update','delete') NOT NULL,
-    applicant_id    INT          NOT NULL,
-    applicant_fio   VARCHAR(255) NOT NULL,
-    field_name      VARCHAR(100) NULL,
-    old_value       TEXT         NULL,
-    new_value       TEXT         NULL,
-    changed_by      VARCHAR(100) NOT NULL,
-    changed_by_role VARCHAR(20)  NOT NULL,
-    changed_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_audit_applicant  (applicant_id),
-    INDEX idx_audit_changed_at (changed_at),
-    INDEX idx_audit_changed_by (changed_by)
+    applicant_id    INT,                          -- без FK: запись живёт дольше абитуриента
+    applicant_fio   VARCHAR(255),                 -- ФИО на момент действия (страховка)
+    field_name      VARCHAR(100),                 -- изменённое поле (только для action=update)
+    old_value       TEXT,
+    new_value       TEXT,
+    -- FK на пользователя: один пользователь совершает много действий
+    id_user         INT,
+    changed_by      VARCHAR(100),                 -- имя пользователя (страховка от удаления)
+    changed_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_user) REFERENCES Users(id_user)
+        ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- ================================================================
--- ТРИГГЕРЫ — автоматический пересчёт рейтинга
--- ================================================================
-
--- Рейтинг = сумма баллов ЕГЭ + бонусные баллы льгот
+-- ============================================================
+-- ТРИГГЕРЫ — пересчёт рейтинга в таблице Applicant
+-- Рейтинг = base_rating из Application + SUM(bonus_points) льгот
+-- ============================================================
 
 DELIMITER $$
 
--- После добавления/изменения оценки ЕГЭ
-CREATE TRIGGER IF NOT EXISTS trg_exam_after_insert
-AFTER INSERT ON Exam
+-- После вставки/обновления заявления
+CREATE TRIGGER trg_recalc_rating_after_app_insert
+AFTER INSERT ON Application
 FOR EACH ROW
 BEGIN
-    UPDATE Applicant SET rating = (
-        COALESCE((SELECT SUM(score) FROM Exam WHERE id_applicant = NEW.id_applicant), 0) +
-        COALESCE((SELECT SUM(b.bonus_points)
-                  FROM Applicant_benefit ab
-                  JOIN Benefit b ON ab.id_benefit = b.id_benefit
-                  WHERE ab.id_applicant = NEW.id_applicant), 0)
-    ) WHERE id_applicant = NEW.id_applicant;
+    UPDATE Applicant a
+    SET a.rating = (
+        SELECT COALESCE(app.base_rating, 0)
+               + COALESCE((
+                   SELECT SUM(b.bonus_points)
+                   FROM Applicant_benefit ab
+                   JOIN Benefit b ON ab.id_benefit = b.id_benefit
+                   WHERE ab.id_applicant = NEW.id_applicant
+               ), 0)
+        FROM Application app
+        WHERE app.id_applicant = NEW.id_applicant
+        LIMIT 1
+    )
+    WHERE a.id_applicant = NEW.id_applicant;
 END$$
 
-CREATE TRIGGER IF NOT EXISTS trg_exam_after_update
-AFTER UPDATE ON Exam
+CREATE TRIGGER trg_recalc_rating_after_app_update
+AFTER UPDATE ON Application
 FOR EACH ROW
 BEGIN
-    UPDATE Applicant SET rating = (
-        COALESCE((SELECT SUM(score) FROM Exam WHERE id_applicant = NEW.id_applicant), 0) +
-        COALESCE((SELECT SUM(b.bonus_points)
-                  FROM Applicant_benefit ab
-                  JOIN Benefit b ON ab.id_benefit = b.id_benefit
-                  WHERE ab.id_applicant = NEW.id_applicant), 0)
-    ) WHERE id_applicant = NEW.id_applicant;
+    UPDATE Applicant a
+    SET a.rating = (
+        SELECT COALESCE(app.base_rating, 0)
+               + COALESCE((
+                   SELECT SUM(b.bonus_points)
+                   FROM Applicant_benefit ab
+                   JOIN Benefit b ON ab.id_benefit = b.id_benefit
+                   WHERE ab.id_applicant = NEW.id_applicant
+               ), 0)
+        FROM Application app
+        WHERE app.id_applicant = NEW.id_applicant
+        LIMIT 1
+    )
+    WHERE a.id_applicant = NEW.id_applicant;
 END$$
 
-CREATE TRIGGER IF NOT EXISTS trg_exam_after_delete
-AFTER DELETE ON Exam
-FOR EACH ROW
-BEGIN
-    UPDATE Applicant SET rating = (
-        COALESCE((SELECT SUM(score) FROM Exam WHERE id_applicant = OLD.id_applicant), 0) +
-        COALESCE((SELECT SUM(b.bonus_points)
-                  FROM Applicant_benefit ab
-                  JOIN Benefit b ON ab.id_benefit = b.id_benefit
-                  WHERE ab.id_applicant = OLD.id_applicant), 0)
-    ) WHERE id_applicant = OLD.id_applicant;
-END$$
-
--- После добавления/удаления льготы
-CREATE TRIGGER IF NOT EXISTS trg_benefit_after_insert
+-- После вставки/удаления льготы
+CREATE TRIGGER trg_recalc_rating_after_benefit_insert
 AFTER INSERT ON Applicant_benefit
 FOR EACH ROW
 BEGIN
-    UPDATE Applicant SET rating = (
-        COALESCE((SELECT SUM(score) FROM Exam WHERE id_applicant = NEW.id_applicant), 0) +
-        COALESCE((SELECT SUM(b.bonus_points)
-                  FROM Applicant_benefit ab
-                  JOIN Benefit b ON ab.id_benefit = b.id_benefit
-                  WHERE ab.id_applicant = NEW.id_applicant), 0)
-    ) WHERE id_applicant = NEW.id_applicant;
+    UPDATE Applicant a
+    SET a.rating = (
+        SELECT COALESCE(app.base_rating, 0)
+               + COALESCE((
+                   SELECT SUM(b.bonus_points)
+                   FROM Applicant_benefit ab
+                   JOIN Benefit b ON ab.id_benefit = b.id_benefit
+                   WHERE ab.id_applicant = NEW.id_applicant
+               ), 0)
+        FROM Application app
+        WHERE app.id_applicant = NEW.id_applicant
+        LIMIT 1
+    )
+    WHERE a.id_applicant = NEW.id_applicant;
 END$$
 
-CREATE TRIGGER IF NOT EXISTS trg_benefit_after_delete
+CREATE TRIGGER trg_recalc_rating_after_benefit_delete
 AFTER DELETE ON Applicant_benefit
 FOR EACH ROW
 BEGIN
-    UPDATE Applicant SET rating = (
-        COALESCE((SELECT SUM(score) FROM Exam WHERE id_applicant = OLD.id_applicant), 0) +
-        COALESCE((SELECT SUM(b.bonus_points)
-                  FROM Applicant_benefit ab
-                  JOIN Benefit b ON ab.id_benefit = b.id_benefit
-                  WHERE ab.id_applicant = OLD.id_applicant), 0)
-    ) WHERE id_applicant = OLD.id_applicant;
+    UPDATE Applicant a
+    SET a.rating = (
+        SELECT COALESCE(app.base_rating, 0)
+               + COALESCE((
+                   SELECT SUM(b.bonus_points)
+                   FROM Applicant_benefit ab
+                   JOIN Benefit b ON ab.id_benefit = b.id_benefit
+                   WHERE ab.id_applicant = OLD.id_applicant
+               ), 0)
+        FROM Application app
+        WHERE app.id_applicant = OLD.id_applicant
+        LIMIT 1
+    )
+    WHERE a.id_applicant = OLD.id_applicant;
 END$$
 
 DELIMITER ;
 
--- ================================================================
--- НАЧАЛЬНЫЕ ДАННЫЕ СПРАВОЧНИКОВ
--- ================================================================
+-- ============================================================
+-- VIEW: удобный полный вид абитуриента с рейтингом
+-- ============================================================
 
--- Льготы
+CREATE OR REPLACE VIEW v_applicants AS
+SELECT
+    a.id_applicant,
+    a.last_name,
+    a.first_name,
+    a.patronymic,
+    CONCAT_WS(' ', a.last_name, a.first_name, a.patronymic) AS full_name,
+    c.name_city                   AS city,
+    r.name_region                 AS region,
+    a.phone,
+    a.vk,
+    a.rating,
+    app.id_application,
+    app.code,
+    app.base_rating,
+    app.has_original,
+    app.submission_date,
+    app.form_education,
+    NULL                          AS institution,
+    b.name_benefit                AS benefit,
+    b.bonus_points,
+    ai.department_visit,
+    ai.notes,
+    ai.dormitory_needed,
+    isrc.name_source              AS information_source,
+    p.name                        AS parent_name,
+    p.phone                       AS parent_phone,
+    p.relation                    AS parent_relation
+FROM Applicant a
+LEFT JOIN City c                  ON a.id_city      = c.id_city
+LEFT JOIN Region r                ON c.id_region    = r.id_region
+LEFT JOIN Application app         ON a.id_applicant = app.id_applicant
+LEFT JOIN Applicant_benefit ab    ON a.id_applicant = ab.id_applicant
+LEFT JOIN Benefit b               ON ab.id_benefit  = b.id_benefit
+LEFT JOIN Additional_info ai      ON a.id_applicant = ai.id_applicant
+LEFT JOIN Information_source isrc ON ai.id_source   = isrc.id_source
+LEFT JOIN Parent p                ON a.id_parent    = p.id_parent;
+
+-- ============================================================
+-- Начальные справочные данные
+-- ============================================================
+
 INSERT IGNORE INTO Benefit (name_benefit, bonus_points) VALUES
-    ('Отличник (аттестат с отличием)',    10),
-    ('Золотая медаль',                     10),
-    ('Серебряная медаль',                   5),
-    ('Сирота',                             10),
-    ('Инвалид I группы',                   10),
-    ('Инвалид II группы',                  10),
-    ('Инвалид III группы',                  5),
-    ('Ребёнок-инвалид',                    10),
-    ('Ребёнок участника СВО',              10),
-    ('Участник СВО',                       10),
-    ('Ребёнок военнослужащего',             5),
-    ('Волонтёр (более 100 часов)',          5),
-    ('ГТО (золотой знак)',                  5),
-    ('ГТО (серебряный знак)',               3),
-    ('ГТО (бронзовый знак)',                2),
-    ('Творческие достижения (лауреат)',     5),
-    ('Победитель олимпиады',               10),
-    ('Призёр олимпиады',                    5);
+('Без льгот', 0),
+('Сирота', 10),
+('Инвалид I группы', 10),
+('Инвалид II группы', 8),
+('Инвалид III группы', 5),
+('Участник СВО', 10),
+('Ребенок участника СВО', 8),
+('Ребенок погибшего участника СВО', 10),
+('Многодетная семья', 3),
+('Целевое обучение', 5),
+('Отличник (аттестат с отличием)', 5),
+('Золотая медаль', 10),
+('Серебряная медаль', 7),
+('Победитель олимпиады (всероссийская)', 10),
+('Призер олимпиады (всероссийская)', 8),
+('Победитель олимпиады (региональная)', 5),
+('Призер олимпиады (региональная)', 3),
+('ГТО (золотой знак)', 5),
+('ГТО (серебряный знак)', 3),
+('ГТО (бронзовый знак)', 2),
+('Волонтер (более 100 часов)', 3),
+('Спортивные достижения (КМС и выше)', 5),
+('Творческие достижения (лауреат)', 3);
 
--- Источники информации
 INSERT IGNORE INTO Information_source (name_source) VALUES
-    ('Сайт учебного заведения'),
-    ('Социальные сети'),
-    ('Рекомендация друзей/знакомых'),
-    ('Рекомендация учителей/родителей'),
-    ('День открытых дверей'),
-    ('Поисковые системы (Google, Яндекс)'),
-    ('Рекламные материалы'),
-    ('СМИ (газеты, телевидение)'),
-    ('Ярмарка образования'),
-    ('Другое');
+('Сайт учебного заведения'),
+('Социальные сети'),
+('Рекомендация друзей/знакомых'),
+('Рекламные материалы'),
+('День открытых дверей'),
+('Ярмарка образования'),
+('Поисковые системы (Google, Яндекс)'),
+('Рекомендация учителей/родителей'),
+('СМИ (газеты, телевидение)'),
+('Другое');
 
--- Предметы ЕГЭ
-INSERT IGNORE INTO Subject (name_subject) VALUES
-    ('Русский язык'),
-    ('Математика'),
-    ('Физика'),
-    ('Химия'),
-    ('Биология'),
-    ('Информатика'),
-    ('Информатика и ИКТ'),
-    ('История'),
-    ('Обществознание'),
-    ('География'),
-    ('Литература'),
-    ('Иностранный язык'),
-    ('Иностранный язык (английский)'),
-    ('Иностранный язык (немецкий)'),
-    ('Иностранный язык (французский)');
+-- Предметы для вступительных экзаменов
+INSERT INTO Subject (name_subject) VALUES
+('Русский язык'),
+('Математика (базовая)'),
+('Математика (профильная)'),
+('Физика'),
+('Химия'),
+('Биология'),
+('Информатика и ИКТ'),
+('История'),
+('Обществознание'),
+('Литература'),
+('Иностранный язык (английский)'),
+('Иностранный язык (немецкий)'),
+('Иностранный язык (французский)'),
+('География'),
+('Черчение'),
+('Физическая культура')
+ON DUPLICATE KEY UPDATE name_subject = VALUES(name_subject);
+
+INSERT INTO Region (name_region) VALUES
+('Донецкая народная республика'),
+('Луганская народная республика'),
+('Херсонская область'),
+('Запорожская область'),
+('Ростовская область')
+ON DUPLICATE KEY UPDATE name_region = VALUES(name_region);
+
+-- Города по регионам
+INSERT INTO City (name_city, id_region)
+SELECT c.name_city, r.id_region
+FROM (VALUES
+  ROW('Донецк',              'Донецкая народная республика'),
+  ROW('Макеевка',            'Донецкая народная республика'),
+  ROW('Горловка',            'Донецкая народная республика'),
+  ROW('Мариуполь',           'Донецкая народная республика'),
+  ROW('Енакиево',            'Донецкая народная республика'),
+  ROW('Торез',               'Донецкая народная республика'),
+  ROW('Снежное',             'Донецкая народная республика'),
+  ROW('Шахтёрск',            'Донецкая народная республика'),
+  ROW('Ясиноватая',          'Донецкая народная республика'),
+  ROW('Харцызск',            'Донецкая народная республика'),
+  ROW('Луганск',             'Луганская народная республика'),
+  ROW('Алчевск',             'Луганская народная республика'),
+  ROW('Стаханов',            'Луганская народная республика'),
+  ROW('Брянка',              'Луганская народная республика'),
+  ROW('Красный Луч',         'Луганская народная республика'),
+  ROW('Свердловск',          'Луганская народная республика'),
+  ROW('Ровеньки',            'Луганская народная республика'),
+  ROW('Антрацит',            'Луганская народная республика'),
+  ROW('Херсон',              'Херсонская область'),
+  ROW('Каховка',             'Херсонская область'),
+  ROW('Новая Каховка',       'Херсонская область'),
+  ROW('Геническ',            'Херсонская область'),
+  ROW('Скадовск',            'Херсонская область'),
+  ROW('Запорожье',           'Запорожская область'),
+  ROW('Мелитополь',          'Запорожская область'),
+  ROW('Бердянск',            'Запорожская область'),
+  ROW('Энергодар',           'Запорожская область'),
+  ROW('Токмак',              'Запорожская область'),
+  ROW('Пологи',              'Запорожская область'),
+  ROW('Ростов-на-Дону',      'Ростовская область'),
+  ROW('Таганрог',            'Ростовская область'),
+  ROW('Шахты',               'Ростовская область'),
+  ROW('Новочеркасск',        'Ростовская область'),
+  ROW('Волгодонск',          'Ростовская область'),
+  ROW('Батайск',             'Ростовская область'),
+  ROW('Новошахтинск',        'Ростовская область'),
+  ROW('Каменск-Шахтинский',  'Ростовская область'),
+  ROW('Донецк (РО)',         'Ростовская область')
+) AS c(name_city, region_name)
+JOIN Region r ON r.name_region = c.region_name
+WHERE NOT EXISTS (
+  SELECT 1 FROM City ex
+  WHERE ex.name_city = c.name_city AND ex.id_region = r.id_region
+);
 
 SET FOREIGN_KEY_CHECKS = 1;
 
-SELECT 'Schema created successfully' AS status;
+-- ============================================================
+-- Сброс AUTO_INCREMENT для чистого старта (выполнять только
+-- на пустой базе или после DELETE FROM всех таблиц)
+-- ============================================================
+ALTER TABLE Applicant         AUTO_INCREMENT = 1;
+ALTER TABLE Application       AUTO_INCREMENT = 1;
+ALTER TABLE Additional_info   AUTO_INCREMENT = 1;
+ALTER TABLE Parent            AUTO_INCREMENT = 1;
+ALTER TABLE Exam              AUTO_INCREMENT = 1;
+ALTER TABLE City              AUTO_INCREMENT = 1;
+ALTER TABLE Region            AUTO_INCREMENT = 1;
+ALTER TABLE Institution       AUTO_INCREMENT = 1;
+ALTER TABLE Benefit           AUTO_INCREMENT = 1;
+ALTER TABLE Information_source AUTO_INCREMENT = 1;
+ALTER TABLE Subject           AUTO_INCREMENT = 1;
+ALTER TABLE Users             AUTO_INCREMENT = 1;

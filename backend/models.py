@@ -64,8 +64,9 @@ class Applicant(Base):
     id_city      = Column(Integer, ForeignKey("City.id_city",   ondelete="SET NULL", onupdate="CASCADE"))
     phone        = Column(String(20), nullable=False)
     vk           = Column(String(255))
-    id_parent    = Column(Integer, ForeignKey("Parent.id_parent", ondelete="SET NULL", onupdate="CASCADE"))
-    rating       = Column(Float, nullable=False, default=0)
+    id_parent      = Column(Integer, ForeignKey("Parent.id_parent", ondelete="SET NULL", onupdate="CASCADE"))
+    # итоговый рейтинг = сумма экзаменов + бонус льготы
+    rating         = Column(Float, nullable=False, default=0)
 
 
 class Application(Base):
@@ -77,7 +78,7 @@ class Application(Base):
     has_original   = Column(Boolean, nullable=False, default=False)
     submission_date = Column(Date)
     form_education = Column(String(50), nullable=False, default="Очная")
-    id_institution = Column(Integer, ForeignKey("Institution.id_institution", ondelete="SET NULL", onupdate="CASCADE"))
+
 
 
 class ApplicantBenefit(Base):
@@ -115,3 +116,18 @@ class User(Base):
     is_active     = Column(Boolean, nullable=False, default=True)
     created_at    = Column(DateTime, nullable=False, server_default=func.now())
     created_by    = Column(Integer, ForeignKey("Users.id_user", ondelete="SET NULL", onupdate="CASCADE"))
+
+class AuditLog(Base):
+    __tablename__ = "Audit_log"
+    id            = Column(Integer, primary_key=True, autoincrement=True)
+    # тип действия: создание, изменение или удаление
+    action        = Column(Enum("create", "update", "delete"), nullable=False)
+    applicant_id  = Column(Integer)               # без FK — запись живёт дольше абитуриента
+    applicant_fio = Column(String(255))           # ФИО на момент действия — страховка от удаления
+    field_name    = Column(String(100))           # изменённое поле (только для action=update)
+    old_value     = Column(Text)
+    new_value     = Column(Text)
+    # FK на пользователя — связь "пользователь совершает много действий"
+    id_user       = Column(Integer, ForeignKey("Users.id_user", ondelete="SET NULL", onupdate="CASCADE"))
+    changed_by    = Column(String(100))           # имя пользователя — страховка от удаления учётной записи
+    changed_at    = Column(DateTime, nullable=False, server_default=func.now())

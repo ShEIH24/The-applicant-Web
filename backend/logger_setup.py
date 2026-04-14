@@ -18,12 +18,12 @@ from datetime import datetime, timezone
 # ── Папка для логов ───────────────────────────────────────────────────────────
 LOG_DIR  = os.path.join(os.path.dirname(__file__), "logs")
 LOG_FILE = os.path.join(LOG_DIR, "app.log")
-os.makedirs(LOG_DIR, exist_ok=True)
+os.makedirs(LOG_DIR, exist_ok=True)  # создаём папку если её нет
 
 
 # ── JSON-форматтер для файла ──────────────────────────────────────────────────
 class JsonFormatter(logging.Formatter):
-    """Каждая строка лога — валидный JSON для удобного парсинга."""
+    """каждая строка лога — валидный JSON для удобного парсинга"""
 
     LEVEL_MAP = {
         logging.DEBUG:    "DEBUG",
@@ -40,12 +40,12 @@ class JsonFormatter(logging.Formatter):
             "logger":  record.name,
             "msg":     record.getMessage(),
         }
-        # Дополнительные поля если есть (user, action, ip и т.д.)
+        # дополнительные поля если переданы через extra= (user, action, ip...)
         for key in ("user", "action", "ip", "path", "status", "applicant_id"):
             val = getattr(record, key, None)
             if val is not None:
                 entry[key] = val
-        # Трейсбек при ошибках
+        # добавляем трейсбек только при ошибках — чтобы не раздувать лог
         if record.exc_info:
             entry["exc"] = self.formatException(record.exc_info)
         return json.dumps(entry, ensure_ascii=False)
@@ -53,6 +53,7 @@ class JsonFormatter(logging.Formatter):
 
 # ── Читаемый форматтер для консоли ───────────────────────────────────────────
 class ConsoleFormatter(logging.Formatter):
+    # ANSI-коды для цветного вывода по уровню
     COLOURS = {
         "DEBUG":    "\033[36m",   # cyan
         "INFO":     "\033[32m",   # green
@@ -71,35 +72,35 @@ class ConsoleFormatter(logging.Formatter):
 
 def setup_logging(level: str = "INFO") -> logging.Logger:
     """
-    Вызывается один раз в main.py.
-    Возвращает корневой логгер приложения 'abiturient'.
+    Настраивает логирование и возвращает корневой логгер 'abiturient'.
+    Вызывается один раз при старте приложения в main.py.
     """
     log_level = getattr(logging, level.upper(), logging.INFO)
 
-    # ── File handler (JSON, ротация) ──────────────────────────────────────────
+    # ── файловый обработчик — JSON с ротацией ─────────────────────────────────
     file_handler = logging.handlers.RotatingFileHandler(
         LOG_FILE,
-        maxBytes=5 * 1024 * 1024,   # 5 МБ
-        backupCount=5,
+        maxBytes=5 * 1024 * 1024,  # 5 МБ на файл
+        backupCount=5,              # хранить последние 5 файлов
         encoding="utf-8",
     )
     file_handler.setFormatter(JsonFormatter())
     file_handler.setLevel(log_level)
 
-    # ── Console handler (цветной текст) ───────────────────────────────────────
+    # ── консольный обработчик — цветной текст ─────────────────────────────────
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(ConsoleFormatter())
     console_handler.setLevel(log_level)
 
-    # ── Корневой логгер приложения ────────────────────────────────────────────
+    # ── корневой логгер приложения ────────────────────────────────────────────
     root = logging.getLogger("abiturient")
     root.setLevel(log_level)
-    root.handlers.clear()
+    root.handlers.clear()  # сбрасываем обработчики при повторном вызове
     root.addHandler(file_handler)
     root.addHandler(console_handler)
-    root.propagate = False
+    root.propagate = False  # не передаём записи в корневой логгер Python
 
-    # ── Заглушаем шумные сторонние логгеры ───────────────────────────────────
+    # заглушаем шумные библиотеки — их DEBUG/INFO нам не нужны
     for noisy in ("uvicorn.access", "sqlalchemy.engine", "passlib"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
@@ -110,5 +111,5 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
 
 
 def get_logger(name: str) -> logging.Logger:
-    """Хелпер для дочерних модулей: get_logger(__name__)"""
+    """хелпер для дочерних модулей: get_logger(__name__)"""
     return logging.getLogger(f"abiturient.{name.split('.')[-1]}")
