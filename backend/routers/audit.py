@@ -2,7 +2,10 @@
 import os
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone, tzinfo
+from zoneinfo import ZoneInfo
+
+MSK = ZoneInfo("Europe/Moscow")
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -50,7 +53,7 @@ async def log_action(
         "new_value":     str(new_value) if new_value is not None else None,
         "id_user":       user.id_user,
         "changed_by":    user.username,
-        "changed_at":    datetime.utcnow(),
+        "changed_at":    datetime.now(tz=MSK).replace(tzinfo=None),
     })
 
 
@@ -153,7 +156,7 @@ async def get_audit_stats(
     _: User = Depends(require_role("admin")),
 ):
     """сводные цифры для карточек на странице журнала"""
-    week_ago = (datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
+    week_ago = (datetime.now(tz=MSK).replace(tzinfo=None) - timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
 
     row = await db.execute(text("""
         SELECT

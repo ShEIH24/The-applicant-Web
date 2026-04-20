@@ -5,9 +5,9 @@
 // СОСТОЯНИЕ
 // ═══════════════════════════════════════════════════════
 const State = {
-  token:    localStorage.getItem('access_token') || '',
-  role:     localStorage.getItem('user_role')    || 'viewer',
-  userName: localStorage.getItem('user_name')    || '',
+  token:    AppStorage.get('access_token'),
+  role:     AppStorage.get('user_role') || 'viewer',
+  userName: AppStorage.get('user_name'),
   rows:     [],
   filtered: [],
   selected: null,
@@ -18,6 +18,8 @@ const State = {
   subjects: [],
   regions:  [],
 };
+
+if (!State.token) { window.location.href = '/'; }
 
 if (!State.token) { window.location.href = '/'; }
 
@@ -70,39 +72,59 @@ function initHeader() {
   pill.className   = `role-pill ${State.role}`;
 
   if (State.role === 'viewer') {
-    // Скрываем кнопки действий и экспорта
     ['btnAdd', 'btnEdit', 'btnDelete', 'btnImport', 'btnExport', 'btnHistory'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
     });
-    // Вешаем класс на таблицу — CSS скроет все колонки кроме data-viewer="show"
     const table = document.getElementById('mainTable');
     if (table) table.classList.add('viewer-mode');
   }
 
-  // кнопка «История» — только для admin
+  // ── Кнопка «История» — только для admin ──────────────────────────
   const histBtn = document.getElementById('btnHistory');
   if (histBtn) {
     if (State.role === 'admin') {
-      histBtn.style.display = '';   // показываем
-      histBtn.disabled = true;      // до выбора строки — неактивна
+      histBtn.style.display = '';
+      histBtn.disabled = true;
+
+      histBtn.addEventListener('click', openHistory);
+
+      const histClose = document.getElementById('historyClose');
+      if (histClose) {
+        histClose.addEventListener('click', () => {
+          document.getElementById('historyOverlay').style.display = 'none';
+        });
+      }
+
+      const histOverlay = document.getElementById('historyOverlay');
+      if (histOverlay) {
+        histOverlay.addEventListener('click', e => {
+          if (e.target === e.currentTarget)
+            e.currentTarget.style.display = 'none';
+        });
+      }
+
     } else {
       histBtn.style.display = 'none';
     }
   }
 
-  // Кнопка перехода в админ-панель — только для admin
+  // ── Кнопка «Журнал» — только для admin ───────────────────────────
+  const logsBtn = document.getElementById('btnLogs');
+  if (logsBtn) {
+    logsBtn.style.display = State.role === 'admin' ? 'flex' : 'none';
+  }
+
+  // ── Кнопка «Аналитика» — для admin и editor ──────────────────────
+  const reportsBtn = document.getElementById('btnReports');
+  if (reportsBtn) {
+    reportsBtn.style.display = ['admin', 'editor'].includes(State.role) ? 'flex' : 'none';
+  }
+
+  // ── Кнопка «Админ-панель» — только для admin ─────────────────────
   const adminBtn = document.getElementById('btnAdminPanel');
   if (adminBtn && State.role === 'admin') {
     adminBtn.style.display = 'flex';
-  }
-  const reportsBtn = document.getElementById('btnReports');
-  if (reportsBtn && ['admin','editor'].includes(State.role)) {
-    reportsBtn.style.display = 'flex';
-  }
-  const logsBtn = document.getElementById('btnLogs');
-  if (logsBtn && State.role === 'admin') {
-    logsBtn.style.display = 'flex';
   }
 }
 
@@ -156,35 +178,52 @@ function renderTable() {
   document.getElementById('counter').textContent =
     `${State.filtered.length} ${plural(State.filtered.length, 'запись', 'записи', 'записей')}`;
 
-  tbody.innerHTML = State.filtered.map((r, idx) => `
-    <tr data-idx="${idx}" data-id="${r.id}"
-        class="${State.selected?.id === r.id ? 'selected' : ''}">
-      <td class="id-cell">${idx + 1}</td>
-      <td>${esc(r.last_name)}</td>
-      <td>${esc(r.first_name)}</td>
-      <td>${esc(r.patronymic || '')}</td>
-      <td>${esc(r.code || '')}</td>
-      <td>${esc(r.form_education || '')}</td>
-      <td class="rating-cell">${(r.rating || 0).toFixed(1)}</td>
-      <td>${esc(r.benefit || '—')}</td>
-      <td>${r.has_original ? '<span class="badge-yes">Да</span>' : '<span class="badge-no">Нет</span>'}</td>
-      <td>${esc(r.region || '')}</td>
-      <td>${esc(r.city || '')}</td>
-      <td>${r.dormitory ? '<span class="badge-yes">Да</span>' : '<span class="badge-no">Нет</span>'}</td>
-      <td title="${esc(r.institution || '')}">${esc(r.institution || '')}</td>
-      <td>${esc(r.submission_date || '')}</td>
-      <td>${esc(r.visit_date || '')}</td>
-      <td title="${esc(r.info_source || '')}">${esc(r.info_source || '')}</td>
-      <td>${esc(r.phone || '')}</td>
-      <td>${esc(r.vk || '')}</td>
-      <td title="${esc(r.parent_name || '')}">${esc(r.parent_name || '')}</td>
-      <td>${esc(r.parent_phone || '')}</td>
-      <td title="${esc(r.notes || '')}">${esc(r.notes || '')}</td>
-    </tr>`).join('');
+  const isViewer = State.role === 'viewer';
+
+  tbody.innerHTML = State.filtered.map((r, idx) => {
+    if (isViewer) {
+      return `
+        <tr data-idx="${idx}" data-id="${r.id}"
+            class="${State.selected?.id === r.id ? 'selected' : ''}">
+          <td class="id-cell">${idx + 1}</td>
+          <td>${esc(r.last_name)}</td>
+          <td>${esc(r.first_name)}</td>
+          <td>${esc(r.patronymic || '')}</td>
+          <td class="rating-cell">${(r.rating || 0).toFixed(1)}</td>
+        </tr>`;
+    }
+    return `
+      <tr data-idx="${idx}" data-id="${r.id}"
+          class="${State.selected?.id === r.id ? 'selected' : ''}">
+        <td class="id-cell">${idx + 1}</td>
+        <td>${esc(r.last_name)}</td>
+        <td>${esc(r.first_name)}</td>
+        <td>${esc(r.patronymic || '')}</td>
+        <td>${esc(r.code || '')}</td>
+        <td>${esc(r.form_education || '')}</td>
+        <td class="rating-cell">${(r.rating || 0).toFixed(1)}</td>
+        <td>${esc(r.benefit || '—')}</td>
+        <td>${r.has_original ? '<span class="badge-yes">Да</span>' : '<span class="badge-no">Нет</span>'}</td>
+        <td>${esc(r.region || '')}</td>
+        <td>${esc(r.city || '')}</td>
+        <td>${r.dormitory ? '<span class="badge-yes">Да</span>' : '<span class="badge-no">Нет</span>'}</td>
+        <td title="${esc(r.institution || '')}">${esc(r.institution || '')}</td>
+        <td>${esc(r.submission_date || '')}</td>
+        <td>${esc(r.visit_date || '')}</td>
+        <td title="${esc(r.info_source || '')}">${esc(r.info_source || '')}</td>
+        <td>${esc(r.phone || '')}</td>
+        <td>${esc(r.vk || '')}</td>
+        <td title="${esc(r.parent_name || '')}">${esc(r.parent_name || '')}</td>
+        <td>${esc(r.parent_phone || '')}</td>
+        <td title="${esc(r.notes || '')}">${esc(r.notes || '')}</td>
+      </tr>`;
+  }).join('');
 
   tbody.querySelectorAll('tr').forEach(tr => {
-    tr.addEventListener('click',    () => selectRow(tr));
-    tr.addEventListener('dblclick', () => { selectRow(tr); openEdit(); });
+    tr.addEventListener('click', () => selectRow(tr));
+    if (State.role !== 'viewer') {
+      tr.addEventListener('dblclick', () => { selectRow(tr); openEdit(); });
+    }
   });
 }
 
@@ -440,7 +479,17 @@ function buildExamRow(id_subject = '', score = '') {
   div.querySelector('.exam-subject').addEventListener('change', () => {
     refreshSubjectOptions(); recalcTotal();
   });
-  div.querySelector('.exam-score').addEventListener('input', recalcTotal);
+  div.querySelector('.exam-score').addEventListener('input', function () {
+    const val = parseFloat(this.value);
+    if (this.value !== '' && (val < 0 || val > 100)) {
+      this.classList.add('is-invalid');
+      this.title = 'Балл должен быть от 0 до 100';
+    } else {
+      this.classList.remove('is-invalid');
+      this.title = '';
+    }
+    recalcTotal();
+  });
   div.querySelector('.btn-remove-exam').addEventListener('click', () => {
     div.remove(); refreshSubjectOptions(); recalcTotal(); updateAddExamBtn();
   });
@@ -629,6 +678,16 @@ function validateForm() {
     }
   });
 
+  // Баллы за экзамены — от 0 до 100 включительно
+  document.querySelectorAll('.exam-score').forEach((el, i) => {
+    const val = parseFloat(el.value);
+    if (el.value !== '' && (isNaN(val) || val < 0 || val > 100)) {
+      el.classList.add('is-invalid');
+      el.title = 'Балл должен быть от 0 до 100';
+      if (!errMsg) errMsg = `Балл экзамена ${i + 1} должен быть от 0 до 100`;
+      ok = false;
+    }
+  });
   if (!ok) showToast(errMsg, 'error');
   return ok;
 }
@@ -1077,7 +1136,6 @@ function openHistory() {
   const content = document.getElementById('historyContent');
   const fioEl   = document.getElementById('historyFio');
   overlay.style.display = 'flex';
-  // показываем спиннер пока грузим данные
   content.innerHTML = '<div class="rp-loading" style="padding:30px"><div class="rp-spinner"></div>Загрузка...</div>';
 
   fetch(`/api/audit/applicant/${State.selected.id}`, {
@@ -1089,50 +1147,154 @@ function openHistory() {
       content.innerHTML = '<div style="padding:24px;text-align:center;color:#9ca3af;font-style:italic">История изменений пуста</div>';
       return;
     }
-    // имя берём из первой записи — оно одинаково для всех строк
+
     if (fioEl) fioEl.textContent = '— ' + rows[0].applicant_fio;
 
-    const html = rows.map(r => {
-      const isUpdate = r.action === 'update';
+    // Группируем записи update по времени и пользователю в один блок
+    const groups = [];
+    rows.forEach(r => {
+      if (r.action === 'update') {
+        const key = `${r.changed_by}__${r.changed_at}`;
+        const existing = groups.find(g => g._key === key);
+        if (existing) {
+          existing.changes.push(r);
+          return;
+        }
+        groups.push({ _key: key, ...r, changes: [r] });
+      } else {
+        groups.push({ ...r, changes: [] });
+      }
+    });
+
+    // Человекочитаемые названия полей
+    const FIELD_LABELS = {
+      last_name:       'Фамилия',
+      first_name:      'Имя',
+      patronymic:      'Отчество',
+      phone:           'Телефон',
+      vk:              'ВКонтакте',
+      city:            'Город',
+      region:          'Регион',
+      code:            'Код специальности',
+      form_education:  'Форма обучения',
+      has_original:    'Оригинал документов',
+      submission_date: 'Дата подачи',
+      institution:     'Учебное заведение',
+      benefit:         'Льгота',
+      dormitory:       'Общежитие',
+      visit_date:      'Дата посещения',
+      info_source:     'Откуда узнал',
+      notes:           'Примечание',
+      parent_name:     'Родитель (ФИО)',
+      parent_phone:    'Телефон родителя',
+      parent_relation: 'Кем приходится',
+      rating:          'Рейтинг',
+    };
+
+    const ACTION_ICON = {
+      create: '✦',
+      update: '✎',
+      delete: '✕',
+    };
+    const ACTION_COLOR = {
+      create: '#43a047',
+      update: '#f9a825',
+      delete: '#e53935',
+    };
+    const ACTION_TEXT = {
+      create: 'Создание записи',
+      update: 'Изменение',
+      delete: 'Удаление записи',
+    };
+
+    const html = groups.map(g => {
+      const color = ACTION_COLOR[g.action] || '#9e9e9e';
+      const icon  = ACTION_ICON[g.action]  || '•';
+      const label = ACTION_TEXT[g.action]  || g.action;
+
+      // Блок изменённых полей (только для update)
+      let changesHtml = '';
+      if (g.action === 'update' && g.changes.length) {
+        changesHtml = g.changes
+          .filter(c => c.field_name)
+          .map(c => {
+            const fieldLabel = FIELD_LABELS[c.field_name] || c.field_name;
+            const oldVal = c.old_value ?? '—';
+            const newVal = c.new_value ?? '—';
+            return `
+              <div style="display:flex;align-items:baseline;gap:8px;
+                          padding:5px 10px;background:#f8f9ff;
+                          border-radius:6px;font-size:12px;flex-wrap:wrap;
+                          margin-top:5px;">
+                <span style="font-weight:700;color:#3949ab;min-width:140px;">
+                  ${esc(fieldLabel)}
+                </span>
+                <span style="color:#e53935;background:#ffebee;padding:1px 7px;
+                             border-radius:4px;text-decoration:line-through;">
+                  ${esc(String(oldVal))}
+                </span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                     stroke="#5c6bc0" stroke-width="2">
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                  <polyline points="12 5 19 12 12 19"/>
+                </svg>
+                <span style="color:#2e7d32;background:#e8f5e9;padding:1px 7px;
+                             border-radius:4px;font-weight:600;">
+                  ${esc(String(newVal))}
+                </span>
+              </div>`;
+          }).join('');
+
+        // Если все изменения без field_name — показываем заглушку
+        if (!changesHtml) {
+          changesHtml = `<div style="padding:5px 10px;font-size:12px;color:#9ca3af;font-style:italic;">
+            Детали изменения не записаны
+          </div>`;
+        }
+      }
+
       return `
-        <div class="audit-row audit-${r.action}">
-          <div class="audit-meta">
-            <span class="rp-badge ${ACTION_CLS[r.action] || 'gray'}">${ACTION_LABEL[r.action] || r.action}</span>
-            <span class="audit-user">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              ${r.changed_by} <span class="audit-role">${r.changed_by_role}</span>
+        <div style="border-left:3px solid ${color};padding:10px 14px;
+                    border-radius:0 8px 8px 0;margin-bottom:10px;
+                    background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.06);">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span style="font-size:13px;font-weight:700;color:${color};">
+              ${icon} ${esc(label)}
             </span>
-            <span class="audit-time">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              ${r.changed_at}
+            <span style="display:flex;align-items:center;gap:4px;
+                         color:#6b7280;font-size:12px;font-weight:600;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+              ${esc(g.changed_by || '—')}
+              <span style="background:#e8eaf6;color:#3949ab;border-radius:4px;
+                           padding:1px 5px;font-size:10px;font-weight:700;
+                           text-transform:uppercase;">
+                ${esc(g.changed_by_role || '')}
+              </span>
+            </span>
+            <span style="display:flex;align-items:center;gap:4px;
+                         color:#9ca3af;font-size:11px;margin-left:auto;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+              ${esc(g.changed_at || '')}
             </span>
           </div>
-          ${isUpdate && r.field_name ? `
-          <div class="audit-change">
-            <span class="audit-field">${r.field_name}</span>
-            <span class="audit-old">${r.old_value || '—'}</span>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5c6bc0" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-            <span class="audit-new">${r.new_value || '—'}</span>
-          </div>` : ''}
+          ${changesHtml}
         </div>`;
     }).join('');
-    content.innerHTML = html;
+
+    content.innerHTML = html || '<div style="padding:24px;text-align:center;color:#9ca3af;">Нет данных</div>';
   })
   .catch(() => {
     content.innerHTML = '<div style="padding:24px;text-align:center;color:#e53935">Ошибка загрузки</div>';
   });
 }
-
-// кнопка «История» открывает панель; клик по крестику или фону закрывает
-document.getElementById('btnHistory')?.addEventListener('click', openHistory);
-document.getElementById('historyClose')?.addEventListener('click', () => {
-  document.getElementById('historyOverlay').style.display = 'none';
-});
-document.getElementById('historyOverlay')?.addEventListener('click', e => {
-  // закрываем только при клике на фон, не на саму панель
-  if (e.target === e.currentTarget)
-    e.currentTarget.style.display = 'none';
-});
 
 // открывает панель полного журнала аудита (только admin)
 function openLogsPanel() {

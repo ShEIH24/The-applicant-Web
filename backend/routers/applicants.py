@@ -3,7 +3,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text, delete, func
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from datetime import date
 
 from database import get_db
@@ -104,17 +104,21 @@ async def _get_or_create_city(db: AsyncSession, city: str, region: str) -> int:
 
 
 
-async def _get_or_create_institution(db: AsyncSession, name: Optional[str]) -> Optional[int]:
-    # ищет или создаёт учреждение по названию; возвращает None если не указано
+async def _get_or_create_institution(db: AsyncSession, name: Optional[str], id_city: int) -> Optional[int]:
+    # ищет или создаёт учреждение в указанном городе; одинаковые названия
+    # в разных городах — допустимы, в одном городе — нет (UniqueConstraint)
     if not name or not name.strip():
         return None
     r = await db.execute(
-        select(Institution).where(Institution.name_institution == name)
+        select(Institution).where(
+            Institution.name_institution == name,
+            Institution.id_city == id_city,
+        )
     )
     obj = r.scalar_one_or_none()
     if obj:
         return obj.id_institution
-    obj = Institution(name_institution=name)
+    obj = Institution(name_institution=name, id_city=id_city)
     db.add(obj)
     await db.flush()
     return obj.id_institution
@@ -180,7 +184,7 @@ async def list_applicants(
         LEFT JOIN City c              ON a.id_city       = c.id_city
         LEFT JOIN Region r            ON c.id_region     = r.id_region
         LEFT JOIN Application app     ON a.id_applicant  = app.id_applicant
-        LEFT JOIN Institution inst    ON a.id_institution = inst.id_institution
+        LEFT JOIN Institution inst    ON app.id_institution = inst.id_institution
         LEFT JOIN Applicant_benefit ab ON a.id_applicant = ab.id_applicant
         LEFT JOIN Benefit b           ON ab.id_benefit   = b.id_benefit
         LEFT JOIN Additional_info ai  ON a.id_applicant  = ai.id_applicant
@@ -248,7 +252,7 @@ async def create_applicant(
     # Используем чистый SQL чтобы полностью контролировать порядок INSERT
     # и избежать проблем с autoflush / NULL rating
     id_city        = await _get_or_create_city(db, data.city, data.region)
-    id_institution = await _get_or_create_institution(db, data.institution)
+    id_institution = await _get_or_create_institution(db, data.institution, id_city)
     id_benefit, bonus_points = await _get_benefit(db, data.benefit)
     id_source      = await _get_or_create_source(db, data.info_source)
 
@@ -266,33 +270,33 @@ async def create_applicant(
     res = await db.execute(text("""
         INSERT INTO Applicant
             (last_name, first_name, patronymic, phone, vk,
-             id_city, id_parent, id_institution, rating)
+             id_city, id_parent, rating)
         VALUES
             (:last_name, :first_name, :patronymic, :phone, :vk,
-             :id_city, :id_parent, :id_institution, :rating)
+             :id_city, :id_parent, :rating)
     """), {
-        "last_name":      data.last_name,
-        "first_name":     data.first_name,
-        "patronymic":     data.patronymic,
-        "phone":          data.phone,
-        "vk":             data.vk,
-        "id_city":        id_city,
-        "id_parent":      id_parent,
-        "id_institution": id_institution,
-        "rating":         rating,
+        "last_name":  data.last_name,
+        "first_name": data.first_name,
+        "patronymic": data.patronymic,
+        "phone":      data.phone,
+        "vk":         data.vk,
+        "id_city":    id_city,
+        "id_parent":  id_parent,
+        "rating":     rating,
     })
     applicant_id = res.lastrowid
 
     # Заявление
     await db.execute(text("""
         INSERT INTO Application
-            (id_applicant, code, base_rating, has_original,
-             submission_date, form_education)
+            (id_applicant, id_institution, code, base_rating,
+             has_original, submission_date, form_education)
         VALUES
-            (:id_applicant, :code, 0, :has_original,
-             :submission_date, :form_education)
+            (:id_applicant, :id_institution, :code, 0,
+             :has_original, :submission_date, :form_education)
     """), {
         "id_applicant":    applicant_id,
+        "id_institution":  id_institution,
         "code":            data.code,
         "has_original":    int(data.has_original),
         "submission_date": data.submission_date,
@@ -341,15 +345,43 @@ async def update_applicant(
     if current_user.role not in ("admin", "editor"):
         raise HTTPException(403, "Недостаточно прав")
 
-    # Проверяем существование
-    r = await db.execute(text(
-        "SELECT id_applicant FROM Applicant WHERE id_applicant = :id"
-    ), {"id": applicant_id})
-    if not r.first():
+    # Проверяем существование и читаем старые данные для аудита
+    r = await db.execute(text("""
+        SELECT
+            a.last_name, a.first_name, a.patronymic,
+            a.phone, a.vk,
+            c.name_city  AS city,
+            r.name_region AS region,
+            p.name       AS parent_name,
+            p.phone      AS parent_phone,
+            p.relation   AS parent_relation,
+            app.code, app.form_education,
+            app.has_original, app.submission_date,
+            inst.name_institution AS institution,
+            b.name_benefit AS benefit,
+            ai.department_visit AS visit_date,
+            ai.dormitory_needed AS dormitory,
+            ai.notes,
+            isrc.name_source AS info_source
+        FROM Applicant a
+        LEFT JOIN City c              ON a.id_city          = c.id_city
+        LEFT JOIN Region r            ON c.id_region        = r.id_region
+        LEFT JOIN Parent p            ON a.id_parent        = p.id_parent
+        LEFT JOIN Application app     ON a.id_applicant     = app.id_applicant
+        LEFT JOIN Institution inst    ON app.id_institution = inst.id_institution
+        LEFT JOIN Applicant_benefit ab ON a.id_applicant    = ab.id_applicant
+        LEFT JOIN Benefit b           ON ab.id_benefit      = b.id_benefit
+        LEFT JOIN Additional_info ai  ON a.id_applicant     = ai.id_applicant
+        LEFT JOIN Information_source isrc ON ai.id_source   = isrc.id_source
+        WHERE a.id_applicant = :id
+    """), {"id": applicant_id})
+    old_row = r.mappings().first()
+    if not old_row:
         raise HTTPException(404, "Абитуриент не найден")
+    old = dict(old_row)
 
     id_city        = await _get_or_create_city(db, data.city, data.region)
-    id_institution = await _get_or_create_institution(db, data.institution)
+    id_institution = await _get_or_create_institution(db, data.institution, id_city)
     id_benefit, bonus_points = await _get_benefit(db, data.benefit)
     id_source      = await _get_or_create_source(db, data.info_source)
     rating         = float(bonus_points or 0)
@@ -381,19 +413,18 @@ async def update_applicant(
         UPDATE Applicant SET
             last_name=:last_name, first_name=:first_name, patronymic=:patronymic,
             phone=:phone, vk=:vk, id_city=:id_city,
-            id_parent=:id_parent, id_institution=:id_institution, rating=:rating
+            id_parent=:id_parent, rating=:rating
         WHERE id_applicant=:id
     """), {
-        "last_name":      data.last_name,
-        "first_name":     data.first_name,
-        "patronymic":     data.patronymic,
-        "phone":          data.phone,
-        "vk":             data.vk,
-        "id_city":        id_city,
-        "id_parent":      id_parent,
-        "id_institution": id_institution,
-        "rating":         rating,
-        "id":             applicant_id,
+        "last_name":  data.last_name,
+        "first_name": data.first_name,
+        "patronymic": data.patronymic,
+        "phone":      data.phone,
+        "vk":         data.vk,
+        "id_city":    id_city,
+        "id_parent":  id_parent,
+        "rating":     rating,
+        "id":         applicant_id,
     })
 
     # Заявление — upsert
@@ -403,10 +434,12 @@ async def update_applicant(
     if r.first():
         await db.execute(text("""
             UPDATE Application SET
-                code=:code, base_rating=0, has_original=:has_original,
-                submission_date=:submission_date, form_education=:form_education
+                id_institution=:id_institution, code=:code, base_rating=0,
+                has_original=:has_original, submission_date=:submission_date,
+                form_education=:form_education
             WHERE id_applicant=:id
         """), {
+            "id_institution": id_institution,
             "code": data.code, "has_original": int(data.has_original),
             "submission_date": data.submission_date,
             "form_education": data.form_education,
@@ -415,12 +448,13 @@ async def update_applicant(
     else:
         await db.execute(text("""
             INSERT INTO Application
-                (id_applicant, code, base_rating, has_original,
-                 submission_date, form_education)
-            VALUES (:id, :code, 0, :has_original,
-                    :submission_date, :form_education)
+                (id_applicant, id_institution, code, base_rating,
+                 has_original, submission_date, form_education)
+            VALUES (:id, :id_institution, :code, 0,
+                    :has_original, :submission_date, :form_education)
         """), {
-            "id": applicant_id, "code": data.code,
+            "id": applicant_id, "id_institution": id_institution,
+            "code": data.code,
             "has_original": int(data.has_original),
             "submission_date": data.submission_date,
             "form_education": data.form_education,
@@ -460,9 +494,52 @@ async def update_applicant(
             "id_source": id_source, "dormitory": int(data.dormitory),
         })
 
-    # записываем в аудит — обновление абитуриента
+    # записываем в аудит — сравниваем поля и пишем только изменённые
     fio = " ".join(filter(None, [data.last_name, data.first_name, data.patronymic]))
-    await log_action(db, current_user, "update", applicant_id, fio)
+
+    # словарь: имя поля → (старое значение, новое значение)
+    _str  = lambda v: str(v).strip() if v is not None else ""
+    _bool = lambda v: "Да" if v else "Нет"
+    _date = lambda v: str(v) if v else ""
+
+    field_map = {
+        "Фамилия":               (_str(old.get("last_name")),       _str(data.last_name)),
+        "Имя":                   (_str(old.get("first_name")),      _str(data.first_name)),
+        "Отчество":              (_str(old.get("patronymic")),      _str(data.patronymic)),
+        "Телефон":               (_str(old.get("phone")),           _str(data.phone)),
+        "ВКонтакте":             (_str(old.get("vk")),              _str(data.vk)),
+        "Город":                 (_str(old.get("city")),            _str(data.city)),
+        "Регион":                (_str(old.get("region")),          _str(data.region)),
+        "Учебное заведение":     (_str(old.get("institution")),     _str(data.institution)),
+        "Код специальности":     (_str(old.get("code")),            _str(data.code)),
+        "Форма обучения":        (_str(old.get("form_education")),  _str(data.form_education)),
+        "Льгота":                (_str(old.get("benefit")),         _str(data.benefit)),
+        "Оригинал документов":   (_bool(old.get("has_original")),   _bool(data.has_original)),
+        "Общежитие":             (_bool(old.get("dormitory")),      _bool(data.dormitory)),
+        "Дата подачи":           (_date(old.get("submission_date")),_date(data.submission_date)),
+        "Дата посещения":        (_date(old.get("visit_date")),     _date(data.visit_date)),
+        "Откуда узнал":          (_str(old.get("info_source")),     _str(data.info_source)),
+        "Примечание":            (_str(old.get("notes")),           _str(data.notes)),
+        "Родитель (ФИО)":        (_str(old.get("parent_name")),     _str(data.parent_name)),
+        "Телефон родителя":      (_str(old.get("parent_phone")),    _str(data.parent_phone)),
+        "Кем приходится":        (_str(old.get("parent_relation")), _str(data.parent_relation)),
+    }
+
+    changes_logged = False
+    for field_label, (old_val, new_val) in field_map.items():
+        if old_val != new_val:
+            await log_action(
+                db, current_user, "update", applicant_id, fio,
+                field_name=field_label,
+                old_value=old_val or "—",
+                new_value=new_val or "—",
+            )
+            changes_logged = True
+
+    # если ничего не изменилось — пишем одну запись без деталей
+    if not changes_logged:
+        await log_action(db, current_user, "update", applicant_id, fio)
+
     await db.commit()
 
     return {"ok": True}
@@ -574,6 +651,13 @@ class ExamItem(BaseModel):
     id_subject: int
     subject_name: Optional[str] = None
     score: float
+
+    @field_validator('score')
+    @classmethod
+    def score_range(cls, v: float) -> float:
+        if v < 0 or v > 100:
+            raise ValueError('Балл за экзамен должен быть от 0 до 100')
+        return round(v, 1)
 
 
 class ExamsPayload(BaseModel):

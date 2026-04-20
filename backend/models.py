@@ -23,9 +23,14 @@ class City(Base):
 
 class Institution(Base):
     __tablename__ = "Institution"
+    __table_args__ = (
+        # Название уникально в пределах одного города: в разных городах —
+        # допустимо (школа №1 в Москве ≠ школа №1 в Ростове)
+        UniqueConstraint("name_institution", "id_city", name="uq_institution_name_city"),
+    )
     id_institution   = Column(Integer, primary_key=True, autoincrement=True)
     name_institution = Column(String(255), nullable=False)
-    # id_city убран — был источником циклической зависимости City→Institution→Applicant→City
+    id_city          = Column(Integer, ForeignKey("City.id_city", ondelete="RESTRICT", onupdate="CASCADE"), nullable=False)
 
 
 class Benefit(Base):
@@ -65,8 +70,8 @@ class Applicant(Base):
     phone        = Column(String(20), nullable=False)
     vk           = Column(String(255))
     id_parent      = Column(Integer, ForeignKey("Parent.id_parent",        ondelete="SET NULL", onupdate="CASCADE"))
-    # FK на Institution; у Institution нет FK на City — петля разорвана
-    id_institution = Column(Integer, ForeignKey("Institution.id_institution", ondelete="SET NULL", onupdate="CASCADE"))
+    # id_institution перенесён в Application — место абитуриента может быть только в заявлении,
+    # при этом Institution теперь сама привязана к City → петли City→…→City не возникает
     # итоговый рейтинг = сумма экзаменов + бонус льготы
     rating         = Column(Float, nullable=False, default=0)
 
@@ -75,6 +80,8 @@ class Application(Base):
     __tablename__ = "Application"
     id_application = Column(Integer, primary_key=True, autoincrement=True)
     id_applicant   = Column(Integer, ForeignKey("Applicant.id_applicant", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
+    # Учебное заведение, откуда поступает абитуриент — привязано к заявлению
+    id_institution = Column(Integer, ForeignKey("Institution.id_institution", ondelete="SET NULL", onupdate="CASCADE"))
     code           = Column(String(50), nullable=False)
     base_rating    = Column(Float, nullable=False, default=0)
     has_original   = Column(Boolean, nullable=False, default=False)

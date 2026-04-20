@@ -8,68 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@600;700;800&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/dashboard.css?v=20260310" />
-  <link rel="stylesheet" href="/static/css/mobile.css?v=20260316" />
-  <style>
-    /* Режим читателя */
-    #mainTable.viewer-mode th, #mainTable.viewer-mode td { display: none !important; }
-    #mainTable.viewer-mode th[data-viewer="show"], #mainTable.viewer-mode td[data-viewer="show"] { display: table-cell !important; }
-
-    /* ── Аудит модалка ── */
-    .modal-overlay {
-      position: fixed; inset: 0; z-index: 999;
-      background: rgba(0,0,0,.45);
-      display: flex; align-items: center; justify-content: center;
-    }
-    .modal-box {
-      background: #fff; border-radius: 12px;
-      box-shadow: 0 8px 40px rgba(0,0,0,.22);
-      display: flex; flex-direction: column;
-      max-height: 88vh; overflow: hidden;
-    }
-    .modal-header {
-      background: linear-gradient(135deg,#3949ab,#3f51b5);
-      padding: 14px 18px;
-      display: flex; align-items: center; gap: 8px;
-      border-radius: 12px 12px 0 0;
-    }
-    .modal-header h5 { color:#fff; }
-    .modal-close {
-      margin-left: auto; background: rgba(255,255,255,.15);
-      border: none; color: #fff; width: 28px; height: 28px;
-      border-radius: 6px; cursor: pointer; font-size: 14px;
-      display: flex; align-items: center; justify-content: center;
-      transition: background .15s;
-    }
-    .modal-close:hover { background: rgba(255,255,255,.28); }
-    .modal-body { overflow-y: auto; }
-
-    /* ── Аудит строки (для модалки в dashboard) ── */
-    .audit-row {
-      padding: 10px 14px; border-radius: 8px; margin-bottom: 6px;
-      border-left: 3px solid #e4e8f0; background: #fff; transition: background .12s;
-    }
-    .audit-row:hover { background: #f5f7ff; }
-    .audit-row.audit-create { border-left-color: #43a047; }
-    .audit-row.audit-update { border-left-color: #f9a825; }
-    .audit-row.audit-delete { border-left-color: #e53935; background: #fffafa; }
-    .audit-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px; }
-    .audit-user { display: flex; align-items: center; gap: 4px; color: #6b7280; font-weight: 600; }
-    .audit-role { background: #e8eaf6; color: #3949ab; border-radius: 4px; padding: 1px 5px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
-    .audit-time { display: flex; align-items: center; gap: 4px; color: #9ca3af; margin-left: auto; font-size: 11px; }
-    .audit-change { display: flex; align-items: center; gap: 8px; margin-top: 6px; padding: 6px 10px; background: #f8f9ff; border-radius: 6px; font-size: 12px; flex-wrap: wrap; }
-    .audit-field { font-weight: 700; color: #3949ab; min-width: 120px; }
-    .audit-old { color: #e53935; background: #ffebee; padding: 2px 7px; border-radius: 4px; text-decoration: line-through; }
-    .audit-new { color: #2e7d32; background: #e8f5e9; padding: 2px 7px; border-radius: 4px; font-weight: 600; }
-    .rp-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; white-space: nowrap; }
-    .rp-badge.green  { background: #e8f5e9; color: #2e7d32; }
-    .rp-badge.yellow { background: #fffde7; color: #f57f17; }
-    .rp-badge.red    { background: #ffebee; color: #c62828; }
-    .rp-badge.gray   { background: #f5f5f5; color: #757575; }
-    .rp-loading { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 30px; color: #6b7280; font-size: 13px; font-weight: 600; }
-    .rp-spinner { width: 18px; height: 18px; border: 2.5px solid #e4e8f0; border-top-color: #5c6bc0; border-radius: 50%; animation: rpSpin .7s linear infinite; }
-    @keyframes rpSpin { to { transform: rotate(360deg); } }
-  </style>
+  <link rel="stylesheet" href="/static/css/dashboard.css?v=202603051715" />
 </head>
 <body>
 
@@ -79,21 +18,12 @@
 <header class="app-header">
   <div class="header-left">
     <div class="logo-mark">
-      <img src="/static/icon.png" alt="Лого" id="logoImg" />
+      <img src="/static/icon.png" alt="Лого"
+           onerror="this.style.display='none'; this.parentElement.innerHTML='А';" />
     </div>
     <span class="header-title">АБИТУРИЕНТ</span>
   </div>
   <div class="header-right">
-
-    <!-- Кнопка перехода в админ-панель (только для admin, показывается через JS) -->
-    <a href="/admin" class="btn-logout" id="btnAdminPanel" title="Управление пользователями" style="display:none;">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-        <circle cx="9" cy="7" r="4"/>
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-      </svg>
-    </a>
     <span class="user-badge" id="userBadge">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -103,6 +33,16 @@
       <span id="userName">...</span>
     </span>
     <span class="role-pill" id="rolePill">viewer</span>
+    <!-- Журнал аудита — только для admin -->
+    <a href="/logs" class="btn-logout" id="btnLogs" title="Журнал действий" style="display:none;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="8" y1="13" x2="16" y2="13"/>
+        <line x1="8" y1="17" x2="16" y2="17"/>
+      </svg>
+    </a>
     <button class="btn-logout" id="logoutBtn" title="Выйти">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -127,7 +67,7 @@
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
       Изменить
     </button>
-    <button class="tb-btn" id="btnHistory" disabled title="История изменений записи">
+    <button class="tb-btn" id="btnHistory" disabled style="display:none;" title="История изменений записи">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
       История
     </button>
@@ -136,15 +76,16 @@
       Удалить
     </button>
     <div class="tb-divider"></div>
-    <a href="/reports" class="tb-btn" id="btnReports" style="display:none;text-decoration:none;">
+    <a href="/reports" class="tb-btn tb-btn-reports" id="btnReports" style="display:none;text-decoration:none;">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
       Аналитика
     </a>
-    <a href="/logs" class="tb-btn" id="btnLogs" style="display:none;text-decoration:none;">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-      Логи
+
+    <a href="/admin" class="tb-btn tb-btn-admin" id="btnAdminPanel" style="display:none;text-decoration:none;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Пользователи
     </a>
-    <div class="tb-divider"></div>
+    
     <button class="tb-btn" id="btnRefresh">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
       Обновить
@@ -158,6 +99,10 @@
       Импорт
     </button>
     <input type="file" id="importFileInput" accept=".csv,.xlsx,.xls" style="display:none;" />
+    <button class="tb-btn tb-btn-admin" id="btnResetId" title="Сбросить счётчик ID (только admin)" style="display:none;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      Сброс ID
+    </button>
   </div>
   <div class="toolbar-right">
     <div class="search-wrap">
@@ -174,8 +119,6 @@
 
 <!-- ════════════════════════════════════════════════
      ТАБЛИЦА
-     data-viewer="show" — колонка видна читателю
-     (остальные скрываются CSS классом viewer-mode)
 ═════════════════════════════════════════════════ -->
 <div class="table-container" id="tableContainer">
   <div class="table-loading" id="tableLoading">
@@ -186,27 +129,27 @@
     <table class="app-table" id="mainTable">
       <thead>
         <tr>
-          <th data-col="id"              data-viewer="show" class="sortable col-num">№</th>
-          <th data-col="last_name"       data-viewer="show" class="sortable">Фамилия</th>
-          <th data-col="first_name"      data-viewer="show" class="sortable">Имя</th>
-          <th data-col="patronymic"      data-viewer="show" class="sortable">Отчество</th>
-          <th data-col="code"                               class="sortable col-code">Код</th>
-          <th data-col="form_education"                     class="sortable col-form">Форма</th>
-          <th data-col="rating"          data-viewer="show" class="sortable col-rating">Рейтинг</th>
-          <th data-col="benefit"                            class="sortable">Льгота</th>
-          <th data-col="has_original"                       class="sortable col-bool">Оригинал</th>
-          <th data-col="region"                             class="sortable col-region">Регион</th>
-          <th data-col="city"                               class="sortable">Город</th>
-          <th data-col="dormitory"                          class="sortable col-bool">Общежитие</th>
-          <th data-col="institution"                        class="sortable col-inst">Учреждение</th>
-          <th data-col="submission_date"                    class="sortable col-date">Дата подачи</th>
-          <th data-col="visit_date"                         class="sortable col-date">Дата посещения</th>
-          <th data-col="info_source"                        class="sortable col-source">Откуда узнал</th>
-          <th data-col="phone"                              class="sortable col-phone">Телефон</th>
-          <th data-col="vk"                                 class="sortable col-vk">ВКонтакте</th>
-          <th data-col="parent_name"                        class="sortable col-parent">Родитель</th>
-          <th data-col="parent_phone"                       class="sortable col-phone">Тел. родителя</th>
-          <th data-col="notes"                              class="col-notes">Примечание</th>
+          <th data-col="id"              class="sortable col-num">№</th>
+          <th data-col="last_name"       class="sortable">Фамилия</th>
+          <th data-col="first_name"      class="sortable">Имя</th>
+          <th data-col="patronymic"      class="sortable">Отчество</th>
+          <th data-col="code"            class="sortable col-code">Код</th>
+          <th data-col="form_education"  class="sortable col-form">Форма</th>
+          <th data-col="rating"          class="sortable col-rating">Рейтинг</th>
+          <th data-col="benefit"         class="sortable">Льгота</th>
+          <th data-col="has_original"    class="sortable col-bool">Оригинал</th>
+          <th data-col="region"          class="sortable col-region">Регион</th>
+          <th data-col="city"            class="sortable">Город</th>
+          <th data-col="dormitory"       class="sortable col-bool">Общежитие</th>
+          <th data-col="institution"     class="sortable col-inst">Учреждение</th>
+          <th data-col="submission_date" class="sortable col-date">Дата подачи</th>
+          <th data-col="visit_date"      class="sortable col-date">Дата посещения</th>
+          <th data-col="info_source"     class="sortable col-source">Откуда узнал</th>
+          <th data-col="phone"           class="sortable col-phone">Телефон</th>
+          <th data-col="vk"              class="sortable col-vk">ВКонтакте</th>
+          <th data-col="parent_name"     class="sortable col-parent">Родитель</th>
+          <th data-col="parent_phone"    class="sortable col-phone">Тел. родителя</th>
+          <th data-col="notes"           class="col-notes">Примечание</th>
         </tr>
       </thead>
       <tbody id="tableBody"></tbody>
@@ -385,7 +328,9 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                 ЭКЗАМЕНЫ
               </div>
-              <div id="examRows" class="exam-rows"></div>
+              <div id="examRows" class="exam-rows">
+                <!-- строки экзаменов вставляются динамически -->
+              </div>
               <button type="button" class="btn-add-exam" id="btnAddExam">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 Добавить экзамен
@@ -411,7 +356,7 @@
               </div>
             </div>
 
-          </div>
+          </div><!-- /form-sections -->
         </form>
       </div>
 
@@ -455,17 +400,39 @@
       <div class="modal-header-custom" style="padding:18px 24px 14px;">
         <span class="modal-title-text">ФОРМАТ ЭКСПОРТА</span>
         <button type="button" class="modal-close-btn" data-bs-dismiss="modal">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
         </button>
       </div>
       <div class="modal-body p-4 d-flex flex-column gap-3">
         <button class="export-fmt-btn" id="btnExportCSV">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
-          <div><div class="export-fmt-title">CSV</div><div class="export-fmt-sub">Текстовый, открывается везде</div></div>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="8" y1="13" x2="16" y2="13"/>
+            <line x1="8" y1="17" x2="16" y2="17"/>
+          </svg>
+          <div>
+            <div class="export-fmt-title">CSV</div>
+            <div class="export-fmt-sub">Текстовый, открывается везде</div>
+          </div>
         </button>
         <button class="export-fmt-btn export-fmt-xlsx" id="btnExportXLSX">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
-          <div><div class="export-fmt-title">Excel (XLSX)</div><div class="export-fmt-sub">Для Microsoft Excel и LibreOffice</div></div>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <line x1="3" y1="9" x2="21" y2="9"/>
+            <line x1="3" y1="15" x2="21" y2="15"/>
+            <line x1="9" y1="3" x2="9" y2="21"/>
+            <line x1="15" y1="3" x2="15" y2="21"/>
+          </svg>
+          <div>
+            <div class="export-fmt-title">Excel (XLSX)</div>
+            <div class="export-fmt-sub">Для Microsoft Excel и LibreOffice</div>
+          </div>
         </button>
       </div>
     </div>
@@ -479,28 +446,49 @@
       <div class="modal-header-custom" style="padding:20px 24px 16px;">
         <span class="modal-title-text" id="importModalTitle">ИМПОРТ ДАННЫХ</span>
         <button type="button" class="modal-close-btn" data-bs-dismiss="modal">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
         </button>
       </div>
       <div class="modal-body p-4">
+
+        <!-- Зона перетаскивания -->
         <div class="import-dropzone" id="importDropzone">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--indigo);opacity:.6;margin-bottom:12px;">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+               style="color:var(--indigo);opacity:.6;margin-bottom:12px;">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
           <p class="import-drop-text">Перетащите файл сюда</p>
           <p class="import-drop-sub">или нажмите для выбора файла</p>
           <p class="import-drop-hint">Поддерживается: <strong>CSV</strong>, <strong>XLSX</strong>, <strong>XLS</strong></p>
           <input type="file" id="importDropInput" accept=".csv,.xlsx,.xls" style="display:none;" />
         </div>
+
+        <!-- Имя выбранного файла -->
         <div class="import-file-info" id="importFileInfo" style="display:none;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
           <span id="importFileName">файл.csv</span>
           <button type="button" class="import-file-clear" id="importFileClear" title="Убрать">✕</button>
         </div>
+
+        <!-- Прогресс -->
         <div class="import-progress" id="importProgress" style="display:none;">
           <div class="import-progress-bar" id="importProgressBar"></div>
         </div>
+
+        <!-- Результат -->
         <div class="import-result" id="importResult" style="display:none;"></div>
+
+        <!-- Подсказка по формату -->
         <details class="import-format-hint">
           <summary>Ожидаемые колонки файла</summary>
           <div class="import-columns-grid">
@@ -511,7 +499,9 @@
             <span>Дата подачи</span><span>Дата посещения</span><span>Откуда узнал</span>
             <span>ВКонтакте</span><span>Родитель</span><span>Тел. родителя</span><span>Примечание</span>
           </div>
-          <p class="import-format-note">* — обязательные поля. Первая строка — заголовки.</p>
+          <p class="import-format-note">* — обязательные поля. Первая строка — заголовки.
+          Для CSV используйте разделитель <code>;</code> или <code>,</code>.
+          Дата в формате <code>ДД.ММ.ГГГГ</code> или <code>ГГГГ-ММ-ДД</code>.</p>
         </details>
       </div>
       <div class="modal-footer border-0 justify-content-end gap-3 pb-4 px-4">
@@ -520,6 +510,50 @@
           <span class="spinner-border spinner-border-sm me-2" style="display:none;" role="status"></span>
           <span class="btn-text">Импортировать</span>
         </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Панель журнала аудита (admin only) -->
+<div id="logsOverlay" style="display:none;position:fixed;inset:0;z-index:1500;
+     background:rgba(0,0,0,.35);align-items:flex-start;justify-content:flex-end;">
+  <div style="width:640px;height:100vh;background:var(--surface,#fff);
+       box-shadow:-4px 0 24px rgba(0,0,0,.15);display:flex;flex-direction:column;overflow:hidden;">
+    <div class="modal-header-custom" style="padding:16px 24px;flex-shrink:0;
+         display:flex;align-items:center;justify-content:space-between;">
+      <span class="modal-title-custom" style="font-size:15px;">ЖУРНАЛ ДЕЙСТВИЙ</span>
+      <button id="logsClose" class="modal-close-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div id="logsContent" style="flex:1;overflow-y:auto;padding:16px 24px;"></div>
+  </div>
+</div>
+
+<!-- Панель истории изменений -->
+<div id="historyOverlay" style="display:none;position:fixed;inset:0;z-index:1500;
+     background:rgba(0,0,0,.45);align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;width:96%;max-width:780px;
+              box-shadow:0 8px 40px rgba(0,0,0,.25);overflow:hidden;display:flex;flex-direction:column;">
+    <div style="background:linear-gradient(135deg,#3f51b5,#303f9f);padding:18px 24px;
+                display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+      <div style="display:flex;align-items:center;gap:0;">
+        <h5 style="font-family:'Raleway',sans-serif;font-weight:800;font-size:15px;
+                   margin:0;color:#fff;">История изменений</h5>
+        <span id="historyFio" style="font-size:12px;color:rgba(255,255,255,.75);margin-left:10px;"></span>
+      </div>
+      <button id="historyClose" style="background:rgba(255,255,255,.15);border:none;
+              border-radius:8px;color:#fff;width:32px;height:32px;cursor:pointer;
+              display:flex;align-items:center;justify-content:center;font-size:18px;
+              line-height:1;">✕</button>
+    </div>
+    <div style="padding:0;max-height:520px;overflow-y:auto;">
+      <div id="historyContent" style="padding:16px;">
+        <div class="rp-loading"><div class="rp-spinner"></div>Загрузка...</div>
       </div>
     </div>
   </div>
@@ -535,27 +569,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/static/js/storage.js?v=20260310c"></script>
-<script src="/static/js/dashboard.js?v=20260310c"></script>
-
-<!-- ═══════════════════════════════════════
-     МОДАЛЬНОЕ ОКНО ИСТОРИИ ИЗМЕНЕНИЙ
-════════════════════════════════════════ -->
-<div class="modal-overlay" id="historyOverlay" style="display:none;">
-  <div class="modal-box" style="max-width:780px;width:96%;">
-    <div class="modal-header">
-      <h5 style="font-family:'Raleway',sans-serif;font-weight:800;font-size:15px;margin:0">
-        История изменений
-      </h5>
-      <span id="historyFio" style="font-size:12px;color:rgba(255,255,255,.75);margin-left:10px"></span>
-      <button class="modal-close" id="historyClose">✕</button>
-    </div>
-    <div class="modal-body" style="padding:0;max-height:520px;overflow-y:auto;">
-      <div id="historyContent" style="padding:16px;">
-        <div class="rp-loading"><div class="rp-spinner"></div>Загрузка...</div>
-      </div>
-    </div>
-  </div>
-</div>
-
+<script src="/static/js/dashboard.js?v=202603051715"></script>
 </body>
 </html>
